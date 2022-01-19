@@ -8,9 +8,9 @@ from mojo.UI import CurrentSpaceCenter, OpenSpaceCenter
 import vanilla
 from pprint import pprint
 from random import choice
-from mojo.subscriber import Subscriber, WindowController, registerCurrentFontSubscriber
+from mojo.subscriber import Subscriber, WindowController, registerGlyphEditorSubscriber
 
-from glyphNameFormatter.reader import u2r
+from glyphNameFormatter.reader import u2r, u2c
 from mojo.UI import setDefault, getDefault
 
 def showSimilarGlyphsInSpaceCenter(this, showSimilar=10):
@@ -59,18 +59,43 @@ def showSimilarGlyphsInSpaceCenter(this, showSimilar=10):
         sp.setRaw(t)
 
 
+YELLOW = (1, 1, 0, 0.4)
+RED = (1, 0, 0, 0.4)
+BLUE = (.5, 0, 1, 0.3)
+
+
 class SimilarityUI(Subscriber, WindowController):
     # simple window to show similarity ranking for the current glyph
     
-    thresholdPrefKey = "com.letterror.similarity,threshold"
+    thresholdPrefKey = "com.letterror.similarity.threshold"
+    unicodeCategoryPrefKey = "com.letterror.similarity.unicodeCategory"
+    syncSpaceCenterPrefKey = "com.letterror.similarity.syncSpaceCenter"
     
     def build(self):
+        
+        glyphEditor = self.getGlyphEditor()
+
+        self.container = glyphEditor.extensionContainer(
+            identifier="com.roboFont.NeighboursDemo.foreground",
+            location="foreground",
+            clear=True)
+        self.leftPathLayer = self.container.appendPathSublayer(
+            strokeColor=RED,
+            fillColor=None,
+            strokeWidth=2,
+            name="leftNeighbour")
+        self.rightPathLayer = self.container.appendPathSublayer(
+            strokeColor=BLUE,
+            fillColor=None,
+            strokeWidth=2,
+            name="rightNeighbour")
+        
         self.zones = None
         self.showSimilar = 10
         self.threshold = getDefault(self.thresholdPrefKey, 0.9)
         self.currentName = None
         self.currentGlyph = None
-        self.currentRange = None
+        self.currentCategory = None
         glyphDescriptions = [
                 {   'title': "Name",
                     'key':'glyphName',
@@ -90,19 +115,22 @@ class SimilarityUI(Subscriber, WindowController):
                 },
         ]
         self.w = vanilla.Window((300, 500), "Similarity", minSize=(200,100))
-        self.w.l = vanilla.List((5,100,-5, -40),[], columnDescriptions=glyphDescriptions)
+        self.w.l = vanilla.List((5,100,-5, -40),[], columnDescriptions=glyphDescriptions, selectionCallback=self.selectItemsCallback)
         self.w.cb1 = vanilla.CheckBox((100, 5, -5, 20), "Above xHeight", value=1, callback=self.zoneCallback)
         self.w.cb2 = vanilla.CheckBox((100, 25, -5, 20), "Baseline to xHeight", value=1, callback=self.zoneCallback)
         self.w.cb3 = vanilla.CheckBox((100, 45, -5, 20), "Below baseline", value=1, callback=self.zoneCallback)
-        self.w.cbur = vanilla.CheckBox((100, 65, -5, 20), "Only same Unicode range", value=1, callback=self.update)
+        self.w.cbuniCat = vanilla.CheckBox((100, 65, -5, 20), "Same Unicode category", value=getDefault(self.unicodeCategoryPrefKey, 1), callback=self.update)
         self.w.threshold = vanilla.EditText((5,-35,50,20), self.threshold, sizeStyle="small", callback=self.editThreshold)
         self.w.thresholdCaption = vanilla.TextBox((60,-32,100,20), "Threshold", sizeStyle="small")
         #self.w.update = vanilla.Button((-100, 5, -5, 20), "Update", callback=self.update)
         self.w.current = vanilla.TextBox((10,5, 90,20), "Nothing")
-        self.w.toSpaceCenter = vanilla.CheckBox((-100,-35,-5,20), "SpaceCenter", self.toSpaceCenter, sizeStyle="small")
+        self.w.toSpaceCenter = vanilla.CheckBox((-100,-35,-5,20), "SpaceCenter", value=getDefault(self.syncSpaceCenterPrefKey, 1), callback=self.toSpaceCenter, sizeStyle="small")
         self.w.open()
         self.update()
 
+    def selectItemsCallback(self, sender):
+        self._updateNeighbours(self.currentGlyph)
+        
     def zoneCallback(self, sender):
         font = CurrentFont()
         zones = []
@@ -121,9 +149,43 @@ class SimilarityUI(Subscriber, WindowController):
     def started(self):
         self.w.open()
 
+    def destroy(self):
+        print('destroy')
+        setDefault(self.syncSpaceCenterPrefKey, self.w.toSpaceCenter.get())
+        setDefault(self.unicodeCategoryPrefKey, self.w.cbuniCat.get())
+        print('now', getDefault(self.syncSpaceCenterPrefKey, 1))
+        self.container.clearSublayers()
+
     def glyphEditorDidSetGlyph(self, info):
         self.currentGlyph = info['glyph']
         self.update()
+        self._updateNeighbours(self.currentGlyph)
+
+    def _updateNeighbours(self, glyph):
+        if glyph is None: return
+        font = glyph.font
+        self.leftPathLayer.clearSublayers()
+        self.rightPathLayer.clearSublayers()
+        selectedItems = [self.w.l[s] for s in self.w.l.getSelection()]
+        for item in selectedItems:
+            simGlyph = font[item['glyphName']]
+            glyphPath = simGlyph.getRepresentation("merz.CGPath")
+            if len(item.get('scoreLeft')) > 0:
+                pp = self.leftPathLayer.appendPathSublayer(
+                    strokeColor=RED,                    
+                    fillColor=None,
+                    strokeWidth=1,
+                    name="leftNeighbour")
+                pp.setPath(glyphPath)
+                pp.setPosition((-simGlyph.leftMargin+glyph.leftMargin, 0))
+            elif len(item.get('scoreRight')) > 0:
+                pp = self.rightPathLayer.appendPathSublayer(
+                    strokeColor=BLUE,                    
+                    fillColor=None,
+                    strokeWidth=1,
+                    name="rightNeighbour")
+                pp.setPath(glyphPath)
+                pp.setPosition((glyph.width-simGlyph.width, 0))
     
     def editThreshold(self, sender=None):
         v = None
@@ -163,11 +225,11 @@ class SimilarityUI(Subscriber, WindowController):
     def update(self, sender=None):
         this = self.currentGlyph
         if this is None:
-            self.currentRange = None
+            self.currentCategory = None
             self.w.l.set([])
             return
-        limitUnicodeRange = self.w.cbur.get()
-        self.currentRange = u2r(this.unicode)
+        limitUnicodeCategory = self.w.cbuniCat.get()
+        self.currentCategory = u2c(this.unicode)
         font = CurrentFont()
         if this is None:
             self.w.l.set([])
@@ -183,10 +245,10 @@ class SimilarityUI(Subscriber, WindowController):
         for g in font:
             if g.name == this.name:
                 continue
-            if limitUnicodeRange:
-                if self.currentRange != u2r(g.unicode):
+            if limitUnicodeCategory:
+                if self.currentCategory != u2c(g.unicode):
                     continue
-            v = u2r(g.unicode)
+            v = u2c(g.unicode)
             if v is not None:
                 rangeLookup[g.name] = v
             ls = cosineSimilarity(this, g, side="left", zones=self.zones)
@@ -217,62 +279,5 @@ class SimilarityUI(Subscriber, WindowController):
         if self.w.toSpaceCenter.get():
             self.toSpaceCenter()
 
-
-OpenWindow(SimilarityUI)    
-
-
-if False:
-
-    f = CurrentFont()
-    g = CurrentGlyph()
-
-    makeNormalizedProfile(g)
-
-    # some other applications that could be useful
-    # how long does this take?
-    import timeit
-    start = timeit.default_timer()
-    for g in CurrentFont():
-        p = g.getRepresentation(normalizedProfileKey)
-    end = timeit.default_timer()
-    print(f"profiling {len(f)} glyphs: {end-start}")
-
-    # example: calculate the similarity between the members of a group
-    if f.groups.keys():
-        testGroup = choice(f.groups.keys())
-        print(f'random testgroup \"{testGroup}\"\n\tfrom {f.path}')
-        threshold = None
-        print(f"\nshowing similarity")
-        left, right = compareGlyphs(f, f.groups[testGroup])
-        if "kern2" in testGroup:
-            print('[ kern2')
-            pprint(left)
-        if 'kern1' in testGroup:
-            print('kern1 ]')
-            pprint(right)
-        if not "kern" in testGroup:
-            print("non-kerning group left")
-            pprint(left)
-            print("non-kerning group right")
-            pprint(right)
-
-    # example: compare two glyphs
-    print("\nthis compares individual glyphs:")
-    compare = [("V", "W"), ("E", 'F'), ("O", "C")]
-    for left, right in compare:
-        ls = cosineSimilarity(this, g, side="left")
-        rs = cosineSimilarity(this, g, side="right")
-        print(f'\t[{left} [{right} {ls}]\n\t{left}] {right}] {rs}]')
-
-    # example: compare selected glyphs in the current font
-    sel = f.selection
-    left, right = compareGlyphs(f, sel)
-    print("\n\nselected left")
-    pprint(left)
-    print("\n\nselected right")
-    pprint(right)
-
-    g = CurrentGlyph()
-    if g is not None:
-        showSimilarGlyphsInSpaceCenter(g)
+registerGlyphEditorSubscriber(SimilarityUI)
 
