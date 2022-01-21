@@ -7,7 +7,7 @@ import math
 
 from cosineSimilarity import cosineSimilarity, leftAverageMarginKey, rightAverageMarginKey
 
-from mojo.UI import CurrentSpaceCenter, OpenSpaceCenter, setDefault, getDefault
+from mojo.UI import CurrentSpaceCenter, OpenSpaceCenter, setDefault, getDefault, OpenGlyphWindow
 from mojo.subscriber import Subscriber, WindowController, registerGlyphEditorSubscriber
 from glyphNameFormatter.reader import u2r, u2c
 
@@ -79,7 +79,11 @@ class SimilarityUI(Subscriber, WindowController):
         col2 = 260
         col3 = col2+(col2-col1)
         self.w = vanilla.Window((600, 500), "Similarity", minSize=(200,100))
-        self.w.l = vanilla.List((5,100,-5, -40),[], columnDescriptions=glyphDescriptions, selectionCallback=self.selectItemsCallback)
+        self.w.l = vanilla.List((5,100,-5, -40),[], 
+            columnDescriptions=glyphDescriptions, 
+            selectionCallback=self.selectItemsCallback,
+            doubleClickCallback = self.listDoubleClickCallback
+            )
         self.w.cb1 = vanilla.CheckBox((col1, 5, 150, 20), "Above xHeight", value=1, callback=self.zoneCallback)
         self.w.cb2 = vanilla.CheckBox((col1, 25, 150, 20), "Baseline to xHeight", value=1, callback=self.zoneCallback)
         self.w.cb3 = vanilla.CheckBox((col1, 45, 150, 20), "Below baseline", value=1, callback=self.zoneCallback)
@@ -94,6 +98,12 @@ class SimilarityUI(Subscriber, WindowController):
         self.w.open()
         self.update()
 
+    def listDoubleClickCallback(self, sender):
+        selectedItems = [self.w.l[s] for s in self.w.l.getSelection()]
+        print('selectedItems', selectedItems)
+        name = selectedItems[0].get('glyphName')
+        OpenGlyphWindow(CurrentFont()[name])
+        
     def sliderCallback(self, sender):
         self.threshold = float(sender.get())
         self.update()
@@ -157,7 +167,7 @@ class SimilarityUI(Subscriber, WindowController):
                     strokeWidth=1,
                     name="rightNeighbour")
                 pp.setPath(glyphPath)
-                pp.setPosition((glyph.width-simGlyph.width, 0))
+                pp.setPosition((-simGlyph.width - simGlyph.rightMargin + glyph.rightMargin + glyph.width, 0))
     
     def editThreshold(self, sender=None):
         v = None
@@ -193,6 +203,7 @@ class SimilarityUI(Subscriber, WindowController):
             sc = CurrentSpaceCenter(self.currentGlyph.font)
             if sc is None:
                 OpenSpaceCenter(self.currentGlyph.font)
+            sc = CurrentSpaceCenter(self.currentGlyph.font)
             sc.setRaw(text)
         
     def update(self, sender=None):
