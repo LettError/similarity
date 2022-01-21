@@ -11,65 +11,29 @@ from defcon import addRepresentationFactory
 from numpy import dot
 from numpy.linalg import norm
 
-
-from fontTools.pens.basePen import BasePen
-from fontTools.misc.bezierTools import splitLine, splitCubic
+from multipleMarginPen import MultipleMarginPen
 
 def NormalizedGlyphProfileFactory(glyph):
-    return makeNormalizedProfile(glyph)
+    la, ra, profile = makeNormalizedProfile(glyph)
+    return profile
 
-normalizedProfileKey = "com.letterror.normalizedGlyphProfile4"
+normalizedProfileKey = "com.letterror.similarity.normalizedGlyphProfile"
 addRepresentationFactory(normalizedProfileKey, NormalizedGlyphProfileFactory)
 
+def LeftAverageMarginFactory(glyph):
+    leftAverage, ra, p = makeNormalizedProfile(glyph)
+    return leftAverage
 
-class MultipleMarginPen(BasePen):
+leftAverageMarginKey = "com.letterror.similarity.leftAverageMargin"
+addRepresentationFactory(leftAverageMarginKey, LeftAverageMarginFactory)
 
-    def __init__(self, glyphSet, values, isHorizontal=True):
-        BasePen.__init__(self, glyphSet)
-        self.values = values
-        self.hits = {}
-        self.filterDoubles = True
-        self.startPt = None
-        self.currentPt = None
-        self.isHorizontal = isHorizontal
-    
-    def _addHit(self, value, hit):
-        if value not in self.hits:
-            self.hits[value] = []
-        x, y = hit
-        self.hits[value].append(hit[not self.isHorizontal])
+def RightAverageMarginFactory(glyph):
+    la, rightAverage, p = makeNormalizedProfile(glyph)
+    return rightAverage
 
-    def _moveTo(self, pt):
-        self.currentPt = pt
-        self.startPt = pt
+rightAverageMarginKey = "com.letterror.similarity.rightAverageMargin"
+addRepresentationFactory(rightAverageMarginKey, RightAverageMarginFactory)
 
-    def _lineTo(self, pt):
-        if self.filterDoubles:
-            if pt == self.currentPt:
-                return
-        for value in self.values:
-            hits = splitLine(self.currentPt, pt, value, self.isHorizontal)
-            for hit in hits[:-1]:
-                self._addHit(value, hit[-1])
-        self.currentPt = pt
-
-    def _curveToOne(self, pt1, pt2, pt3):
-        for value in self.values:
-            hits = splitCubic(self.currentPt, pt1, pt2, pt3, value, self.isHorizontal)
-            for hit in hits[:-1]:
-                self._addHit(value, hit[-1])                
-        self.currentPt = pt3
-
-    def _closePath(self):
-        if self.currentPt != self.startPt:
-            self._lineTo(self.startPt)
-        self.currentPt = self.startPt = None
-
-    def _endPath(self):
-        self.currentPt = None
-
-    def getMargins(self):
-        return self.hits    
         
 def stepRange(mn, mx, parts):
     # return a list of parts between mn, mx
@@ -90,7 +54,7 @@ def makeNormalizedProfile(glyph, clip=200):
     leftValues = []
     rightValues = []
     if glyph is None:
-        return
+        return None, None, None
     font = glyph.font
     a = font.info.italicAngle
     if a is None:
@@ -152,7 +116,7 @@ def makeNormalizedProfile(glyph, clip=200):
         else:
             mx = 0
         normalized.append((y, mn, mx))      
-    return normalized
+    return leftAverage, rightAverage, normalized
 
 def getRange(values, zones):
     if zones is None: return values
@@ -174,7 +138,6 @@ def cosineSimilarity(first, second, side="left", zones=None):
     leftResult = rightResult = None            
     heights = [a for a,b,c in firstProfile] # the sample heights
     zoned = getRange(heights, zones)
-    #print('zoned', zoned)
     if side == "left":
         firstLeftProfile = [b for a,b,c in firstProfile if a in zoned]
         secondLeftProfile = [b for a,b,c in secondProfile if a in zoned]
