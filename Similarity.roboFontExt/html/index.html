@@ -23,6 +23,10 @@ li{
 code{
 	font-size: 140%;
 }
+em{
+	font-style: normal;
+	font-weight: bold;
+}
 </style>
     </head>
     <body>
@@ -32,24 +36,53 @@ code{
 
 <p>Experimental tool for finding similar glyphs</p>
 
+<h2>Before you start:</h2>
+<img src="numpy.png">
+You need to install <em>numpy</em> with the <em>Install Python Packages</em> menu.
+
+
 <img src="similaritywindow.png">
 
 <h2>Use</h2>
 <ul>
 	<li>Open a Glyph window, select Similarity from the extensions menu - this window will appear.</li>
 	<li>The columns named <em>Left</em> and <em>Right</em> show the similarity score. You will notice that only values very close to <em>1</em> make sense.</li>
+	
 	<li>The columns named <em>Category</em> and <em>Range</em> show the Unicode category and Unicode Range name. If selected, the list will only show the glyphs in the same category or range as the current glyph.</li>
+	
 	<li>Selecting a glyph in the list will draw that glyph in the background of the current glyph. Selected glyphs that matched on the left are drawn in red. Glyphs that matched on the right are drawn in blue.</li>
+	
 	<li>Threshold slider and value: sets a threshold on the similarity score.</li>
+	
 	<li>Zone checkboxes: a rough way to control which vertical zones are included in the comparison. So if "Above xHeight" is checked, differences above the xheight will be noticed.</li>
 	<li>Double click on a glyph in the list to jump to that glyph in the editor.</li>
 </ul>
 
+
+<img src="glyphwindow.png">
+
+<h2>Why</h2>
+<p>Well, it is an pretty objective way of analysing shapes. So there may be some use for it. Using it myself I notice some results are counter intuititve - but this is because we like to work with glyphs that are clustered along semantic rules. "All the a accents". And those are not the same as the geometric similarities this thing finds.
+
+<img src="profile.png">
+
+
 <h2>How</h2>
-This works by calculating a profile for each side of each glyph. This might take a noticable amount of time at first, after that the values are stored and only recalculated when a glyph actually changes. Then the cosine similarity can be calculated for different sides in different glyphs. The rest is plain Vanilla UI and some lovely Merz visualisation.
+
+<ul>
+<li>This works by calculating a profile for each side of each glyph. The green dots on the image above show a left profile. Calculating these profiles will take a noticable amount of time at first, after that the values are stored and only recalculated when a glyph actually changes.</li>
+
+<li>Then the <a href="https://en.wikipedia.org/wiki/Cosine_similarity">cosine similarity</a> value, the "similarity score", can be calculated for two corresponding sides in different glyphs. This is pretty quick, thanks to numpy.</li>
+
+<li>You will see that only values very close to 1.00 still make sense. But you can play with the Threshold slider to discover where all the glyphs are. Note that accents above glyphs can substantially change the profile. So while we may expect /a and /aacute to be very similar, the profiles might be quite different.</li>
+
+<li>So keep in mind the glyphs that Similarity finds are not necessarily kerning groups.</li>
+
+
+</ul>
 
 <h2>Version</h2>
-Experimental release 1.0
+<p>Experimental release 1.0. There will be bugs and unacceptable errors in thinking.</p>
 
 <h2>Thanks</h2>
 <ul>

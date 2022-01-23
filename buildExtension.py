@@ -56,7 +56,7 @@ B.developerURL = 'http://letterror.com/tools.html'
 if resourcesPath:
     # extension icon (file path or NSImage)
     imagePath = os.path.join(resourcesPath, 'icon.png')
-    imagePath = 'GlyphBrowserMechanicIcon.png'
+    imagePath = 'SimilarityMechanicIcon.png'
     B.icon = imagePath
 
 # version of the extension
