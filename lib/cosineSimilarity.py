@@ -75,7 +75,15 @@ def SimilarityRepresentationFactory(glyph, threshold=0.99, sameUnicodeClass=True
 #        flat2 = other.getRepresentation("defcon.contour.flattened", approximateSegmentLength=segmentLength, segmentLines=True)
 #    cls.representationFactories[name] = dict(factory=factory, destructiveNotifications=destructiveNotifications)
 
-defcon.Glyph.representationFactories[SimilarGlyphsKey] = dict(factory=SimilarityRepresentationFactory, threshold=0.99, sameUnicodeClass=True, sameUnicodeRange=True, zones=None, side="left")
+defcon.Glyph.representationFactories[SimilarGlyphsKey] = dict(
+    factory=SimilarityRepresentationFactory, 
+    destructiveNotifications=("Contour.PointsChanged",),
+    threshold=0.99, 
+    sameUnicodeClass=True, 
+    sameUnicodeRange=True, 
+    zones=None, 
+    side="left"
+    )
         
 def stepRange(mn, mx, parts):
     # return a list of parts between mn, mx

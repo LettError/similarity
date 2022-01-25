@@ -73,7 +73,7 @@ B.html = htmlPath is not None
 
 # minimum RoboFont version required for this extension
 B.requiresVersionMajor = '4'
-B.requiresVersionMinor = '2'
+B.requiresVersionMinor = '1'
 
 # scripts which should appear in Extensions menu
 B.addToMenu = [

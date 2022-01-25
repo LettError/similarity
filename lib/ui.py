@@ -105,6 +105,7 @@ class SimilarityUI(Subscriber, WindowController):
         self.w.current = vanilla.TextBox((10,5, 90,20), "Nothing")
         self.w.toSpaceCenter = vanilla.Button((10,-30,150,20), "To SpaceCenter", callback=self.toSpaceCenter)
         self.w.selectInFont = vanilla.Button((170,-30,150,20), "Select", callback=self.selectInFont)
+        self.w.bind("close", self.destroy)
         self.w.open()
         self.update()
 
@@ -140,15 +141,16 @@ class SimilarityUI(Subscriber, WindowController):
     def started(self):
         self.w.open()
 
-    def destroy(self):
+    def destroy(self, sender=None):
         setDefault(self.unicodeCategoryPrefKey, self.w.cbuniCat.get())
         setDefault(self.unicodeRangePrefKey, self.w.cbuniRange.get())
         self.container.clearSublayers()
 
     def glyphEditorDidSetGlyph(self, info):
         self.currentGlyph = info['glyph']
-        self.update()
-        self._updateNeighbours(self.currentGlyph)
+        if self.currentGlyph is not None:
+            self.update()
+            self._updateNeighbours(self.currentGlyph)
 
     def _updateNeighbours(self, glyph):
         if glyph is None: return
@@ -217,7 +219,7 @@ class SimilarityUI(Subscriber, WindowController):
         
     def toSpaceCenter(self, sender=None):
         # put the selected names in a spacecenter
-        leftNames, rightNames = self.getSelectedNames()
+        leftNames, rightNames = self.getSelectedGlyphs()
         text = f"/bracketleft/{self.currentName}/space/space{'/'+'/'.join(leftNames)}\\n/{self.currentName}/bracketright/space/space{'/'+'/'.join(rightNames)}"
         if self.currentGlyph is not None:
             sc = CurrentSpaceCenter(self.currentGlyph.font)
@@ -247,18 +249,22 @@ class SimilarityUI(Subscriber, WindowController):
         self.w.current.set(self.currentName)
         
         items = []
+        if self.zones:
+            z = tuple(self.zones)
+        else:
+            z = None
         rankLeft = this.getRepresentation(SimilarGlyphsKey,
             threshold=self.threshold, 
             sameUnicodeClass=limitUnicodeCategory,
             sameUnicodeRange=limitUnicodeRange,
-            zones=self.zones,
+            zones=z,
             side="left",
             )
         rankRight = this.getRepresentation(SimilarGlyphsKey,
             threshold=self.threshold,
             sameUnicodeClass=limitUnicodeCategory,
             sameUnicodeRange=limitUnicodeRange,
-            zones=self.zones,
+            zones=z,
             side="right",
             )
 
