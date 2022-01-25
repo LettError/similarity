@@ -3,7 +3,8 @@ import cosineSimilarity
 importlib.reload(cosineSimilarity)
 
 import vanilla
-import math
+import math, time
+import AppKit
 
 from cosineSimilarity import cosineSimilarity, SimilarGlyphsKey, leftAverageMarginKey, rightAverageMarginKey
 
@@ -27,6 +28,12 @@ BLUE = (.5, 0, 1, 0.3)
 
 roboFontItalicSlantLibKey = "com.typemytype.robofont.italicSlantOffset"
 
+class RightAlignEditTextList2Cell(vanilla.EditTextList2Cell):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.editText.getNSTextField().setAlignment_(AppKit.NSTextAlignmentRight)
+
 
 class SimilarityUI(Subscriber, WindowController):
     # simple window to show similarity ranking for the current glyph
@@ -42,7 +49,7 @@ class SimilarityUI(Subscriber, WindowController):
 
         self.container = glyphEditor.extensionContainer(
             identifier="com.roboFont.NeighboursDemo.foreground",
-            location="foreground",
+            location="background",
             clear=True)
         self.leftPathLayer = self.container.appendPathSublayer(
             strokeColor=RED,
@@ -66,28 +73,43 @@ class SimilarityUI(Subscriber, WindowController):
                 {   'title': "Name",
                     'key':'glyphName',
                     'editable':False,
+                    'width': 150,
+                },
+                {   'title': "◀︎",
+                    'key':'leftMargin',
+                    'editable':False,
+                    'width': 50,
                 },
                 {   'title': "Left",
                     'key':'scoreLeft',
                     'editable':False,
+                    'width': 100,
                 },
                 {   'title': "Right",
                     'key':'scoreRight',
                     'editable':False,
+                    'width': 100,
                 },
-                {   'title': "Category",
+                {   'title': "▶︎",
+                    'key':'rightMargin',
+                    'editable':False,
+                    'width': 50,
+                },
+                {   'title': "Cat",
                     'key':'unicodeCategory',
                     'editable':False,
+                    'width': 50,
                 },
                 {   'title': "Range",
                     'key':'unicodeRange',
                     'editable':False,
+                    'width': 150,
                 },
         ]
         col1 = 100
         col2 = 260
         col3 = col2+(col2-col1)
-        self.w = vanilla.Window((600, 500), "LTR Similarity", minSize=(200,100))
+        self.w = vanilla.Window((700, 500), "LTR Similarity", minSize=(200,100))
         self.w.l = vanilla.List((5,100,-5, -40),[], 
             columnDescriptions=glyphDescriptions, 
             selectionCallback=self.selectItemsCallback,
@@ -101,10 +123,9 @@ class SimilarityUI(Subscriber, WindowController):
         self.w.threshold = vanilla.EditText((col2,70,50,20), self.threshold, sizeStyle="small", callback=self.editThreshold)
         self.w.thresholdSlider = vanilla.Slider((col1, 70, 120, 20), minValue=0, maxValue=1, value=self.threshold, callback=self.sliderCallback, continuous=True)
         self.w.thresholdCaption = vanilla.TextBox((315,72,100,20), "Threshold", sizeStyle="small")
-        #self.w.update = vanilla.Button((-100, 5, -5, 20), "Update", callback=self.update)
-        self.w.current = vanilla.TextBox((10,5, 90,20), "Nothing")
         self.w.toSpaceCenter = vanilla.Button((10,-30,150,20), "To SpaceCenter", callback=self.toSpaceCenter)
         self.w.selectInFont = vanilla.Button((170,-30,150,20), "Select", callback=self.selectInFont)
+        self.w.calcTime = vanilla.TextBox((-140, -30+5, -10, 20), "", sizeStyle="small")
         self.w.bind("close", self.destroy)
         self.w.open()
         self.update()
@@ -146,6 +167,15 @@ class SimilarityUI(Subscriber, WindowController):
         setDefault(self.unicodeRangePrefKey, self.w.cbuniRange.get())
         self.container.clearSublayers()
 
+    def glyphEditorWillClose(self, info):
+        self.destroy()
+    
+    def glyphDidChangeMetrics(self, info):
+        self.currentGlyph = info['glyph']
+        if self.currentGlyph is not None:
+            self.update()
+            self._updateNeighbours(self.currentGlyph)
+        
     def glyphEditorDidSetGlyph(self, info):
         self.currentGlyph = info['glyph']
         if self.currentGlyph is not None:
@@ -169,7 +199,9 @@ class SimilarityUI(Subscriber, WindowController):
                     strokeWidth=1,
                     name="leftNeighbour")
                 pp.setPath(glyphPath)
-                pp.setPosition((-simGlyph.leftMargin+glyph.leftMargin, 0))
+                #pp.setPosition((-simGlyph.leftMargin+glyph.leftMargin, 0))
+                #pp.setPosition((-glyph.leftMargin-simGlyph.leftMargin, 0))
+                #pp.setPosition((-(simGlyph.leftMargin-glyph.leftMargin), 0))
             elif len(item.get('scoreRight')) > 0:
                 pp = self.rightPathLayer.appendPathSublayer(
                     strokeColor=BLUE,                    
@@ -177,7 +209,6 @@ class SimilarityUI(Subscriber, WindowController):
                     strokeWidth=1,
                     name="rightNeighbour")
                 pp.setPath(glyphPath)
-                #pp.setPosition((-simGlyph.width - simGlyph.rightMargin + glyph.rightMargin + glyph.width, 0))
                 pp.setPosition((-simGlyph.width + glyph.width, 0))
     
     def editThreshold(self, sender=None):
@@ -220,15 +251,16 @@ class SimilarityUI(Subscriber, WindowController):
     def toSpaceCenter(self, sender=None):
         # put the selected names in a spacecenter
         leftNames, rightNames = self.getSelectedGlyphs()
-        text = f"/bracketleft/{self.currentName}/space/space{'/'+'/'.join(leftNames)}\\n/{self.currentName}/bracketright/space/space{'/'+'/'.join(rightNames)}"
+        text = f"/{self.currentName}/space/space{'/'+'/'.join(leftNames)} \\n/{self.currentName}/space{'/'+'/'.join(rightNames)}"
         if self.currentGlyph is not None:
-            sc = CurrentSpaceCenter(self.currentGlyph.font)
-            if sc is None:
-                OpenSpaceCenter(self.currentGlyph.font)
+            #sc = CurrentSpaceCenter(self.currentGlyph.font)
+            #if sc is None:
+            OpenSpaceCenter(self.currentGlyph.font)
             sc = CurrentSpaceCenter(self.currentGlyph.font)
             sc.setRaw(text)
         
     def update(self, sender=None):
+        start = time.time_ns()
         this = self.currentGlyph
         if this is None:
             self.currentCategory = None
@@ -243,10 +275,10 @@ class SimilarityUI(Subscriber, WindowController):
         if this is None:
             self.w.l.set([])
             self.currentName = None
-            self.w.current.set("")
+            self.w.setTitle("LTR Similarity")
             return
         self.currentName = this.name
-        self.w.current.set(self.currentName)
+        self.w.setTitle(f'LTR Similarity: {self.currentName}')
         
         items = []
         if self.zones:
@@ -267,36 +299,7 @@ class SimilarityUI(Subscriber, WindowController):
             zones=z,
             side="right",
             )
-
-
-        # rankLeft = {}
-        # rankRight = {}
-        # items = []
-        # rangeLookup = {}
-        # categoryLookup = {}
-        # for g in font:
-        #     if g.name == this.name:
-        #         continue
-        #     if limitUnicodeCategory:
-        #         if self.currentCategory != u2c(g.unicode):
-        #             continue
-        #     if limitUnicodeRange:
-        #         if self.currentRange != u2r(g.unicode):
-        #             continue
-        #     thisUniCat = u2c(g.unicode)
-        #     if thisUniCat is not None:
-        #         categoryLookup[g.name] = thisUniCat
-        #     thisUniRange = u2r(g.unicode)
-        #     if thisUniRange is not None:
-        #         rangeLookup[g.name] = thisUniRange
-        #     ls = cosineSimilarity(this, g, side="left", zones=self.zones)
-        #     rs = cosineSimilarity(this, g, side="right", zones=self.zones)
-        #     if not ls in rankLeft:
-        #         rankLeft[ls] = []
-        #     rankLeft[ls].append(g.name)
-        #     if not rs in rankRight:
-        #         rankRight[rs] = []
-        #     rankRight[rs].append(g.name)        
+     
         rk = list(rankLeft.keys())
         rk = sorted(rk, key = lambda x : float('-inf') if math.isnan(x) else x)
         rk = [v for v in rk if v > self.threshold]
@@ -310,9 +313,16 @@ class SimilarityUI(Subscriber, WindowController):
                 rng = u2r(font[name].unicode)
                 if rng is None:
                     rng = ''
+                lm = this.leftMargin-font[name].leftMargin
+                if lm == 0.0:
+                    lm = ""
+                else:
+                    lm = f'{lm:3.2f}'
                 items.append(dict(glyphName=name, 
                     scoreLeft=f"{k:3.5f}", 
                     scoreRight="", 
+                    leftMargin = lm,
+                    rightMargin = '',
                     unicodeCategory=cat,
                     unicodeRange=rng,
                     ))
@@ -329,13 +339,24 @@ class SimilarityUI(Subscriber, WindowController):
                 rng = u2r(font[name].unicode)
                 if rng is None:
                     rng = ''
+                rm = this.rightMargin-font[name].rightMargin
+                if rm == 0.0:
+                    rm = ""
+                else:
+                    rm = f'{rm:3.2f}'
                 items.append(dict(glyphName=name, 
                     scoreRight=f"{k:3.5f}", 
-                    scoreLeft="", 
+                    scoreLeft="",
+                    leftMargin = '',
+                    rightMargin = rm,
                     unicodeCategory=cat,
                     unicodeRange=rng,
                     ))
         self.w.l.set(items)
+        end = time.time_ns()
+        duration = (end-start) / (10 ** 9)
+        self.w.calcTime.set(f'update: {duration:3.3f} seconds')
+
 
 registerGlyphEditorSubscriber(SimilarityUI)
 
