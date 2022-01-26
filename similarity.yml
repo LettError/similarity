@@ -1,0 +1,9 @@
+description: Experimental tool for exploring the similarities between glyphs
+developer: LettError
+developerURL: http://letterror.com
+extensionName: Similarity
+extensionPath: Similarity.roboFontExt
+repository: https://github.com/LettError/similarity
+tags: [contours, consistency, similarity, navigation]
+dateAdded: 2022-01-26 15:00:00
+icon: https://raw.githubusercontent.com/LettError/similarity/bce66d7c6b0b2a9640f5cafe7dd4c226d5f66013/SimilarityMechanicIcon.png
