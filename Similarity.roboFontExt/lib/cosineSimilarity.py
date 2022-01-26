@@ -6,62 +6,40 @@ from defcon import addRepresentationFactory, registerRepresentationFactory
 import defcon
 
 
-# principle: 
-# https://www.delftstack.com/howto/python/cosine-similarity-between-lists-python/
 from numpy import dot
 from numpy.linalg import norm
-
 from glyphNameFormatter.reader import u2r, u2c
-
-#registerRepresentationFactory(Glyph, "com.letterror.sim", myFactoryCallback) (edited) 
-
-
 from multipleMarginPen import MultipleMarginPen
 
-def NormalizedGlyphProfileFactory(glyph):
-    la, ra, profile = makeNormalizedProfile(glyph)
+def NormalizedGlyphProfileFactory(glyph, clip=200):
+    la, ra, profile = makeNormalizedProfile(glyph, clip=clip)
     return profile
 
 normalizedProfileKey = "com.letterror.similarity.normalizedGlyphProfile"
-registerRepresentationFactory(defcon.Glyph, normalizedProfileKey, NormalizedGlyphProfileFactory)
 
-def LeftAverageMarginFactory(glyph):
-    leftAverage, ra, p = makeNormalizedProfile(glyph)
-    return leftAverage
+defcon.Glyph.representationFactories[normalizedProfileKey] = dict(
+    factory=NormalizedGlyphProfileFactory, 
+    destructiveNotifications=("Contour.PointsChanged",),
+    clip=200,
+    )
 
-leftAverageMarginKey = "com.letterror.similarity.leftAverageMargin"
-registerRepresentationFactory(defcon.Glyph, leftAverageMarginKey, LeftAverageMarginFactory)
-
-def RightAverageMarginFactory(glyph):
-    la, rightAverage, p = makeNormalizedProfile(glyph)
-    return rightAverage
-
-rightAverageMarginKey = "com.letterror.similarity.rightAverageMargin"
-registerRepresentationFactory(defcon.Glyph, rightAverageMarginKey, RightAverageMarginFactory)
-
-
-
-# experimental factory with parameters
 SimilarGlyphsKey = "com.letterror.similarity.similarGlyphs"
 
-def SimilarityRepresentationFactory(glyph, threshold=0.99, sameUnicodeClass=True, sameUnicodeRange=True, zones=None, side="left"):
+def SimilarityRepresentationFactory(glyph, threshold=0.99, sameUnicodeClass=True, sameUnicodeRange=True, zones=None, side="left", clip=200):
     # return the glyphs that are similar on the left
     thisUnicodeRange = u2r(glyph.unicode)
     thisUnicodeClass = u2c(glyph.unicode)
     hits = {}
-    # todo list
     font = glyph.font
     for other in font:
-        #print("testing", threshold, other.name)
         otherUnicodeRange = u2r(other.unicode)
         if sameUnicodeRange and (otherUnicodeRange != thisUnicodeRange) and thisUnicodeRange is not None: continue
         otherUnicodeClass = u2c(other.unicode)
         if sameUnicodeClass and (otherUnicodeClass != thisUnicodeClass) and thisUnicodeClass is not None: continue
         # ok here we should only have the glyphs with same unicode range and class if we want to be selective
-        score = cosineSimilarity(glyph, other, side=side, zones=zones)
+        score = cosineSimilarity(glyph, other, side=side, zones=zones, clip=clip)
         if threshold is not None:
             if score >= threshold:
-                #print(f'{other.name}: {score}, {hits}')
                 if not score in hits:
                     hits[score] = []
                 hits[score].append(other.name)
@@ -179,12 +157,12 @@ def getRange(values, zones):
     ok.sort()
     return ok
         
-def cosineSimilarity(first, second, side="left", zones=None):
+def cosineSimilarity(first, second, side="left", zones=None, clip=200):
     # compare normalized profiles of these glyphs according to cosine similarity
     # https://www.delftstack.com/howto/python/cosine-similarity-between-lists-python/
     sides = {}
-    firstProfile = first.getRepresentation(normalizedProfileKey)
-    secondProfile = second.getRepresentation(normalizedProfileKey)
+    firstProfile = first.getRepresentation(normalizedProfileKey, clip=clip)
+    secondProfile = second.getRepresentation(normalizedProfileKey, clip=clip)
     leftResult = rightResult = None            
     heights = [a for a,b,c in firstProfile] # the sample heights
     zoned = getRange(heights, zones)

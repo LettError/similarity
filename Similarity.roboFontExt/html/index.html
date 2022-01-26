@@ -33,40 +33,48 @@ em{
     <body>
 
 
-<h1>Similarity</h1>
+<h1>LTR Similarity</h1>
 
-<p>Experimental tool for finding similar glyphs</p>
+<p>Experimental tool for exploring the similarities between glyphs</p>
 
 <h2>Before you start:</h2>
 <p>For this extension to work, you need to install <em>numpy</em> with the <em>Python / Install Python Packages</em> menu. And then type <em>numpy</em> and return.</p>
 <img src="numpy.png">
 
 
-<h2>Use</h2>
 
 <img src="similaritywindow.png">
 
+<h2>Usage</h2>
+
 <ul>
-	<li>Open a Glyph window, select Similarity from the extensions menu - this window will appear.</li>
-	<li>The columns named <em>Left</em> and <em>Right</em> show the similarity score. You will notice that only values very close to <em>1</em> make sense.</li>
+	<li>Open a Glyph window, then pick Similarity from the extensions menu - the Similarity window will appear.</li>
+	<li>The columns named <em>Left</em> and <em>Right</em> show the <em>similarity score</em>. This is a value that indicates how similar the profiles are. You will notice that only values very close to <em>1</em> make sense.</li>
 	
 	<li>The columns named <em>Category</em> and <em>Range</em> show the Unicode category and Unicode Range name. If selected, the list will only show the glyphs in the same category or range as the current glyph.</li>
 	
 	<li>Selecting a glyph in the list will draw that glyph in the background of the current glyph. Selected glyphs that matched on the left are drawn in red. Glyphs that matched on the right are drawn in blue.</li>
 	
-	<li><em>Threshold slider</em> and value: sets a threshold on the similarity score.</li>
+	<li><em>Threshold slider</em> and value: set a threshold on the minimum similarity score you see in the list.</li>
+	
+	<li><em>Clip slider</em> this value determines how deep the profiles are measured. Higher values might be useful for wider designs. Smaller values might be useful for narrower designs. So far a value between 100 and 200 seems fine. Changes to the clip value will cause all calculations to be done again. </li>
 	
 	<li><em>Zone checkboxes</em>: a rough way to control which vertical zones are included in the comparison. So if "Above xHeight" is checked, differences above the xheight will be noticed.</li>
+
+	<li><em>Select a glyph in the list</em> Glyphs similar on the left are drawn on the left side of the current glyph. Blue for glyphs similar on the right. The dashed line indicates where the profiles are clipped.</li>
+
 	<li><em>Double click on a glyph</em> in the list to jump to that glyph in the editor. The Similarity window will refresh and show the similarities with the new glyph.</li>
 
-	<li><em>SpaceCenter button</em> will open a new spaceCenter and show these glyphs.</li>
+	<li><em>SpaceCenter button</em> will open a new spaceCenter and show the glyphs selected in the list.</li>
+
+	<li><em>Select button</em> selects the glyphs selected in the list, in the font window.</li>
 </ul>
 
 
 <img src="glyphwindow.png">
 
 <h2>Why</h2>
-<p>Well, it is an pretty objective way of analysing shapes. So there may be some use for it. Using it myself I notice some results are counter intuititve - but this is because we like to work with glyphs that are clustered along semantic rules. "All the a accents". And those are not the same as the geometric similarities this thing finds.</p>
+<p>Well, it is an pretty objective way of analysing shapes. So there may be some use for it. Using it myself I notice some results are counter intuititve - but this is because we like to work with glyphs that are clustered along semantic rules. "All the a accents". And those are not the same as the geometric similarities this thing finds. It is quite useful for finding irregularities between glyphs. That's not to say it all needs to be the same!</p>
 
 
 <img src="profile.png">
@@ -75,17 +83,13 @@ em{
 <h2>How</h2>
 
 <ul>
-<li>This works by calculating a profile for each side of each glyph. The green dots on the image above show a left profile. Calculating these profiles will take a noticable amount of time at first, after that the values are stored and only recalculated when a glyph actually changes.</li>
+<li>This works by calculating a profile, a list of horizontal measurements at different heights for each side of each glyph. The green dots on the image above show a left profile. Calculating these profiles will take a noticable amount of time at first, after that the values are stored and only recalculated when a glyph actually changes.</li>
 
 <li>The profiles are <em>normalized</em>, the average of all values is substracted from each value. So the profiles shift a bit. If there is a bit that stick out, the average will be different and the profile will normalize slightly different from a shape that does not stick out.</li>
 
 <li>Then the <a href="https://en.wikipedia.org/wiki/Cosine_similarity">cosine similarity</a> value, the "similarity score", can be calculated for two corresponding sides in different glyphs. This is pretty quick, thanks to numpy.</li>
 
 <li>You will see that only values very close to <em>1.00</em> still make sense. But you can play with the Threshold slider to discover where all the glyphs are. Note that accents above glyphs can substantially change the profile. So while we may expect <em>/a</em> and <em>/aacute</em> to be very similar, the profiles might be different enough to rank further apart.</li>
-
-<li>So keep in mind the glyphs that this extension finds are not necessarily kerning groups.</li>
-
-
 
 
 </ul>
