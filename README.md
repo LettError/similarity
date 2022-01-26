@@ -1,13 +1,9 @@
-# Similarity
+# LTR Similarity
 
-This is an experimental approach to calculating a value that represents the similarity between the left sides or right profiles of different glyphs.
+![](html/similaritywindow.png)
 
-![](profile.png)
+This is an experimental approach to calculating a value that represents the similarity between the sides of different glyphs. RoboFont4 extension. 
 
-This shows in green the profile of four different glyphs (omegaiotasublenisacute, omegaiotasublenisgrave, omegalenisacute and omegalenisgrave in Source Sans Black)
+![](html/profile.png)
 
-## How
-
-Using [cosine similarity [wikipedia]](https://en.wikipedia.org/wiki/Cosine_similarity) we can calculate a value that represents how similar the two profiles are, with 1.00 is the highest and best score. Less similar profiles will score lower, sometimes even below 0. For this experiment only values very close to 1 make sense.
-
-![Profile video](profiles_S_right.mp4)
+Dedicated to my GitHub Sponsors! Your support makes research like this possible, thank you!
