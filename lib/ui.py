@@ -23,6 +23,22 @@ class RightAlignEditTextList2Cell(vanilla.EditTextList2Cell):
         super().__init__(*args, **kwargs)
         self.editText.getNSTextField().setAlignment_(AppKit.NSTextAlignmentRight)
 
+def findKernGroups(glyph):
+    left = {}
+    right = {}
+    font = glyph.font
+    for groupName, members in font.groups.items():
+        if "public.kern1" in groupName:
+            if g in members:
+                for m in members:
+                    if not m in left:
+                        left[m] = groupName
+        if "public.kern2" in groupName:
+            if g in members:
+                for m in members:
+                    if not m in right:
+                        right[m] = groupName
+    return left, right
 
 class SimilarityUI(Subscriber, WindowController):
     # simple window to show similarity ranking for the current glyph
@@ -38,6 +54,7 @@ class SimilarityUI(Subscriber, WindowController):
         glyphEditor = self.getGlyphEditor()
         self.clip = getDefault(self.clipPrefKey, 100)
         self.previousCurrentGlyph = None
+        self.previewStrokeWidth = 1.4
         self.container = glyphEditor.extensionContainer(
             identifier="com.roboFont.NeighboursDemo.foreground",
             location="background",
@@ -179,6 +196,7 @@ class SimilarityUI(Subscriber, WindowController):
     def destroy(self, sender=None):
         setDefault(self.unicodeCategoryPrefKey, self.w.cbuniCat.get())
         setDefault(self.unicodeRangePrefKey, self.w.cbuniRange.get())
+        setDefault(self.thresholdPrefKey, self.threshold)
         self.container.clearSublayers()
 
     def glyphEditorWillClose(self, info):
@@ -199,38 +217,57 @@ class SimilarityUI(Subscriber, WindowController):
             self.update()
             self._updateNeighbours(self.currentGlyph)
 
+        
     def _updateNeighbours(self, glyph):
         if glyph is None: return
         font = glyph.font
         italicSlantOffset = font.lib.get(roboFontItalicSlantLibKey, 0)
         self.leftPathLayer.clearSublayers()
         self.rightPathLayer.clearSublayers()
-
-        
         selectedItems = [self.w.l[s] for s in self.w.l.getSelection()]
         hasDrawnLeft = False
         hasDrawnRight = False
+        
         for item in selectedItems:
             simGlyph = font[item['glyphName']]
             glyphPath = simGlyph.getRepresentation("merz.CGPath")
             if len(item.get('scoreLeft')) > 0:
+                leftDash = None
+                #scoreLeft = max(0,float(item.get('scoreLeft')))
+                #j = 20*(1-scoreLeft)
+                #if j < 2:
+                #    leftDash = None
+                #else:
+                #    leftDash = [5, j]
                 pp = self.leftPathLayer.appendPathSublayer(
                     strokeColor=RED,                    
                     fillColor=None,
-                    strokeWidth=1,
+                    strokeWidth=self.previewStrokeWidth,
+                    strokeDash=leftDash,
+                    strokeCap="round",
                     name="leftNeighbour")
                 pp.setPath(glyphPath)
                 hasDrawnLeft = True
             elif len(item.get('scoreRight')) > 0:
+                rightDash = None
+                #scoreRight = max(0,float(item.get('scoreRight')))
+                #j = 20*(1-scoreRight)
+                #if j < 2:
+                #    rightDash = None
+                #else:
+                #    rightDash = [5, j]
                 pp = self.rightPathLayer.appendPathSublayer(
                     strokeColor=BLUE,                    
                     fillColor=None,
-                    strokeWidth=1,
+                    strokeWidth=self.previewStrokeWidth,
+                    strokeDash=rightDash,
+                    strokeCap="round",
                     name="rightNeighbour")
                 pp.setPath(glyphPath)
                 pp.setPosition((-simGlyph.width + glyph.width, 0))
                 hasDrawnRight = True
         if hasDrawnLeft:
+            # XX add slant angle here
             self.leftClipLayer = self.leftPathLayer.appendLineSublayer(
                 startPoint=(self.clip, font.info.descender),
                 endPoint=(self.clip, font.info.ascender),
@@ -316,6 +353,7 @@ class SimilarityUI(Subscriber, WindowController):
             self.currentName = None
             self.w.setTitle("LTR Similarity")
             return
+            
         self.currentName = this.name
         self.w.setTitle(f'LTR Similarity: {self.currentName}')
         
