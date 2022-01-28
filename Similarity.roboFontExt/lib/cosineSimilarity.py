@@ -25,7 +25,14 @@ defcon.Glyph.representationFactories[normalizedProfileKey] = dict(
 
 SimilarGlyphsKey = "com.letterror.similarity.similarGlyphs"
 
-def SimilarityRepresentationFactory(glyph, threshold=0.99, sameUnicodeClass=True, sameUnicodeRange=True, zones=None, side="left", clip=200):
+
+def SimilarityRepresentationFactory(glyph, threshold=0.99, 
+                sameUnicodeClass=True, 
+                sameUnicodeRange=True, 
+                zones=None, 
+                side="left", 
+                clip=200, 
+                ):
     # return the glyphs that are similar on the left
     thisUnicodeRange = u2r(glyph.unicode)
     thisUnicodeClass = u2c(glyph.unicode)

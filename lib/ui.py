@@ -149,6 +149,7 @@ class SimilarityUI(Subscriber, WindowController):
         self.w.selectInFont = vanilla.Button((170,-30,150,20), "Select", callback=self.selectInFont)
         self.w.calcTime = vanilla.TextBox((-140, -30+5, -10, 20), "", sizeStyle="small")
         self.w.bind("close", self.destroy)
+        self.w.setDefaultButton(self.w.toSpaceCenter)
         self.w.open()
         self.update()
 
@@ -205,18 +206,17 @@ class SimilarityUI(Subscriber, WindowController):
         except:
             pass
     
-    def glyphDidChangeMetrics(self, info):
-        self.currentGlyph = info['glyph']
-        if self.currentGlyph is not None:
-            self.update()
-            self._updateNeighbours(self.currentGlyph)
+    #def glyphDidChangeMetrics(self, info):
+    #    self.currentGlyph = info['glyph']
+    #    if self.currentGlyph is not None:
+    #        self.update()
+    #        self._updateNeighbours(self.currentGlyph)
         
     def glyphEditorDidSetGlyph(self, info):
         self.currentGlyph = info['glyph']
         if self.currentGlyph is not None:
             self.update()
             self._updateNeighbours(self.currentGlyph)
-
         
     def _updateNeighbours(self, glyph):
         if glyph is None: return
@@ -228,49 +228,37 @@ class SimilarityUI(Subscriber, WindowController):
         hasDrawnLeft = False
         hasDrawnRight = False
         
+        # slant angle offsets for clip line
+        a = font.info.italicAngle
+        if a is None:
+            a = 0
+        td = math.tan(math.radians(-a)) * font.info.descender
+        ta = math.tan(math.radians(-a)) * font.info.ascender
+        
         for item in selectedItems:
             simGlyph = font[item['glyphName']]
             glyphPath = simGlyph.getRepresentation("merz.CGPath")
             if len(item.get('scoreLeft')) > 0:
-                leftDash = None
-                #scoreLeft = max(0,float(item.get('scoreLeft')))
-                #j = 20*(1-scoreLeft)
-                #if j < 2:
-                #    leftDash = None
-                #else:
-                #    leftDash = [5, j]
                 pp = self.leftPathLayer.appendPathSublayer(
                     strokeColor=RED,                    
                     fillColor=None,
                     strokeWidth=self.previewStrokeWidth,
-                    strokeDash=leftDash,
-                    strokeCap="round",
                     name="leftNeighbour")
                 pp.setPath(glyphPath)
                 hasDrawnLeft = True
             elif len(item.get('scoreRight')) > 0:
-                rightDash = None
-                #scoreRight = max(0,float(item.get('scoreRight')))
-                #j = 20*(1-scoreRight)
-                #if j < 2:
-                #    rightDash = None
-                #else:
-                #    rightDash = [5, j]
                 pp = self.rightPathLayer.appendPathSublayer(
                     strokeColor=BLUE,                    
                     fillColor=None,
                     strokeWidth=self.previewStrokeWidth,
-                    strokeDash=rightDash,
-                    strokeCap="round",
                     name="rightNeighbour")
                 pp.setPath(glyphPath)
                 pp.setPosition((-simGlyph.width + glyph.width, 0))
                 hasDrawnRight = True
         if hasDrawnLeft:
-            # XX add slant angle here
             self.leftClipLayer = self.leftPathLayer.appendLineSublayer(
-                startPoint=(self.clip, font.info.descender),
-                endPoint=(self.clip, font.info.ascender),
+                startPoint=(self.clip+td, font.info.descender),
+                endPoint=(self.clip+ta, font.info.ascender),
                 strokeColor=RED,
                 fillColor=None,
                 strokeWidth=1,
@@ -278,8 +266,8 @@ class SimilarityUI(Subscriber, WindowController):
                 name="leftClip")
         if hasDrawnRight:
             self.rightClipLayer = self.rightPathLayer.appendLineSublayer(
-                startPoint=(glyph.width-self.clip, font.info.descender),
-                endPoint=(glyph.width-self.clip, font.info.ascender),
+                startPoint=(glyph.width-self.clip+td, font.info.descender),
+                endPoint=(glyph.width-self.clip+ta, font.info.ascender),
                 strokeColor=BLUE,
                 fillColor=None,
                 strokeWidth=1,
