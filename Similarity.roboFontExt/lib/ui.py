@@ -165,7 +165,6 @@ class SimilarityUI(Subscriber, WindowController):
         self.w.setDefaultButton(self.w.toSpaceCenter)
         self.w.open()
         self.zoneCallback()
-        #self.update()
 
     def listDoubleClickCallback(self, sender):
         # after double clicking, can we see the previous currentglyph
@@ -178,7 +177,7 @@ class SimilarityUI(Subscriber, WindowController):
     def clipSliderCallback(self, sender):
         self.clip = int(sender.get())
         self.w.clipCaption.set(f'Clip: {self.clip}')
-        self.update()
+        self.zoneCallback()
         self._updateNeighbours(self.currentGlyph)
         
     def sliderCallback(self, sender):

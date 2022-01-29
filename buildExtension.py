@@ -55,7 +55,7 @@ if resourcesPath:
     B.icon = imagePath
 
 # version of the extension
-B.version = '1.2.2'
+B.version = '1.2.3'
 
 # should the extension be launched at start-up?
 B.launchAtStartUp = False
