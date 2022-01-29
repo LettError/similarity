@@ -12,8 +12,10 @@ from mojo.UI import CurrentSpaceCenter, OpenSpaceCenter, setDefault, getDefault,
 from mojo.subscriber import Subscriber, WindowController, registerGlyphEditorSubscriber
 from glyphNameFormatter.reader import u2r, u2c
 
-RED = (1, 0, 0, 0.4)
+RED = (1, 0, 0, 0.3)
 BLUE = (.5, 0, 1, 0.3)
+REDZone = (1, 0, 0, 0.05)
+BLUEZone = (.5, 0, 1, 0.05)
 
 roboFontItalicSlantLibKey = "com.typemytype.robofont.italicSlantOffset"
 
@@ -47,6 +49,7 @@ class SimilarityUI(Subscriber, WindowController):
     unicodeCategoryPrefKey = "com.letterror.similarity.unicodeCategory"
     unicodeRangePrefKey = "com.letterror.similarity.unicodeRange"
     syncSpaceCenterPrefKey = "com.letterror.similarity.syncSpaceCenter"
+    zonesPrefKey = "com.letterror.similarity.zones"
     clipPrefKey = "com.letterror.similarity.clip"
     
     def build(self):
@@ -59,11 +62,19 @@ class SimilarityUI(Subscriber, WindowController):
             identifier="com.roboFont.NeighboursDemo.foreground",
             location="background",
             clear=True)
+        self.leftZonesLayer = self.container.appendPathSublayer(
+            strokeColor=None,
+            fillColor=REDZone,
+            name="leftZones")
         self.leftPathLayer = self.container.appendPathSublayer(
             strokeColor=RED,
             fillColor=None,
             strokeWidth=2,
             name="leftNeighbour")
+        self.rightZonesLayer = self.container.appendPathSublayer(
+            strokeColor=None,
+            fillColor=BLUEZone,
+            name="rightZones")
         self.rightPathLayer = self.container.appendPathSublayer(
             strokeColor=BLUE,
             fillColor=None,
@@ -74,8 +85,10 @@ class SimilarityUI(Subscriber, WindowController):
 
         
         self.zones = None
+        self.zoneLayerNames = []
         self.showSimilar = 10
         self.threshold = getDefault(self.thresholdPrefKey, 0.9)
+        zonePrefs = getDefault(self.zonesPrefKey, (1, 1, 1))
         self.currentName = None
         self.currentGlyph = None
         self.currentCategory = None
@@ -132,9 +145,9 @@ class SimilarityUI(Subscriber, WindowController):
             selectionCallback=self.selectItemsCallback,
             doubleClickCallback = self.listDoubleClickCallback
             )
-        self.w.cb1 = vanilla.CheckBox((col1, line1, 150, 20), "Above xHeight", value=1, callback=self.zoneCallback)
-        self.w.cb2 = vanilla.CheckBox((col1, line2, 150, 20), "Baseline to xHeight", value=1, callback=self.zoneCallback)
-        self.w.cb3 = vanilla.CheckBox((col1, line3, 150, 20), "Below baseline", value=1, callback=self.zoneCallback)
+        self.w.cb1 = vanilla.CheckBox((col1, line1, 150, 20), "Above xHeight", value=zonePrefs[0], callback=self.zoneCallback)
+        self.w.cb2 = vanilla.CheckBox((col1, line2, 150, 20), "Baseline to xHeight", value=zonePrefs[1], callback=self.zoneCallback)
+        self.w.cb3 = vanilla.CheckBox((col1, line3, 150, 20), "Below baseline", value=zonePrefs[2], callback=self.zoneCallback)
         self.w.cbuniCat = vanilla.CheckBox((col2, line1, -5, 20), "Unicode category", value=getDefault(self.unicodeCategoryPrefKey, 1), callback=self.update)
         self.w.cbuniRange = vanilla.CheckBox((col2, line2, -5, 20), "Unicode range", value=getDefault(self.unicodeRangePrefKey, 1), callback=self.update)
 
@@ -151,7 +164,8 @@ class SimilarityUI(Subscriber, WindowController):
         self.w.bind("close", self.destroy)
         self.w.setDefaultButton(self.w.toSpaceCenter)
         self.w.open()
-        self.update()
+        self.zoneCallback()
+        #self.update()
 
     def listDoubleClickCallback(self, sender):
         # after double clicking, can we see the previous currentglyph
@@ -176,7 +190,7 @@ class SimilarityUI(Subscriber, WindowController):
     def selectItemsCallback(self, sender):
         self._updateNeighbours(self.currentGlyph)
         
-    def zoneCallback(self, sender):
+    def zoneCallback(self, sender=None):
         font = CurrentFont()
         zones = []
         if self.w.cb1.get():
@@ -189,6 +203,48 @@ class SimilarityUI(Subscriber, WindowController):
             self.zones = None
         else:
             self.zones = zones
+
+        self.leftZonesLayer.clearSublayers()
+        self.rightZonesLayer.clearSublayers()
+        
+        self.zoneLayerNames = []
+        if self.zones is not None:
+            a = font.info.italicAngle
+            if a is None:
+                a = 0
+            for mn, mx in self.zones:
+                zoneName = f'leftZone_{mn}_{mx}'
+                self.zoneLayerNames.append(zoneName)
+                leftZoneLayer = self.leftZonesLayer.appendPathSublayer(
+                    fillColor=REDZone,
+                    name=zoneName
+                    )
+                zonePen = leftZoneLayer.getPen()
+                mnOff = math.tan(math.radians(-a)) * mn
+                mxOff = math.tan(math.radians(-a)) * mx
+                zonePen.moveTo((0+mnOff, mn))
+                zonePen.lineTo((self.clip+mnOff, mn))
+                zonePen.lineTo((self.clip+mxOff, mx))
+                zonePen.lineTo((0+mxOff, mx))
+                zonePen.closePath()
+                leftZoneLayer.setVisible(False)
+
+                zoneName = f'rightZone_{mn}_{mx}'
+                self.zoneLayerNames.append(zoneName)
+                rightZoneLayer = self.rightZonesLayer.appendPathSublayer(
+                    fillColor=BLUEZone,
+                    name=zoneName
+                    )
+                zonePen = rightZoneLayer.getPen()
+                zonePen.moveTo((0-self.clip+mnOff, mn))
+                zonePen.lineTo((+mnOff, mn))
+                zonePen.lineTo((+mxOff, mx))
+                zonePen.lineTo((0-self.clip+mxOff, mx))
+                zonePen.closePath()
+                if self.currentGlyph is not None:
+                    rightZoneLayer.setPosition((self.currentGlyph.width, 0))
+                rightZoneLayer.setVisible(False)
+
         self.update()
         
     def started(self):
@@ -198,6 +254,8 @@ class SimilarityUI(Subscriber, WindowController):
         setDefault(self.unicodeCategoryPrefKey, self.w.cbuniCat.get())
         setDefault(self.unicodeRangePrefKey, self.w.cbuniRange.get())
         setDefault(self.thresholdPrefKey, self.threshold)
+        zonePrefs = (self.w.cb1.get(), self.w.cb2.get(), self.w.cb3.get())
+        setDefault(self.zonesPrefKey, zonePrefs)
         self.container.clearSublayers()
 
     def glyphEditorWillClose(self, info):
@@ -206,12 +264,6 @@ class SimilarityUI(Subscriber, WindowController):
         except:
             pass
     
-    #def glyphDidChangeMetrics(self, info):
-    #    self.currentGlyph = info['glyph']
-    #    if self.currentGlyph is not None:
-    #        self.update()
-    #        self._updateNeighbours(self.currentGlyph)
-        
     def glyphEditorDidSetGlyph(self, info):
         self.currentGlyph = info['glyph']
         if self.currentGlyph is not None:
@@ -227,14 +279,6 @@ class SimilarityUI(Subscriber, WindowController):
         selectedItems = [self.w.l[s] for s in self.w.l.getSelection()]
         hasDrawnLeft = False
         hasDrawnRight = False
-        
-        # slant angle offsets for clip line
-        a = font.info.italicAngle
-        if a is None:
-            a = 0
-        td = math.tan(math.radians(-a)) * font.info.descender
-        ta = math.tan(math.radians(-a)) * font.info.ascender
-        
         for item in selectedItems:
             simGlyph = font[item['glyphName']]
             glyphPath = simGlyph.getRepresentation("merz.CGPath")
@@ -255,26 +299,18 @@ class SimilarityUI(Subscriber, WindowController):
                 pp.setPath(glyphPath)
                 pp.setPosition((-simGlyph.width + glyph.width, 0))
                 hasDrawnRight = True
-        if hasDrawnLeft:
-            self.leftClipLayer = self.leftPathLayer.appendLineSublayer(
-                startPoint=(self.clip+td, font.info.descender),
-                endPoint=(self.clip+ta, font.info.ascender),
-                strokeColor=RED,
-                fillColor=None,
-                strokeWidth=1,
-                strokeDash=(10,10),
-                name="leftClip")
-        if hasDrawnRight:
-            self.rightClipLayer = self.rightPathLayer.appendLineSublayer(
-                startPoint=(glyph.width-self.clip+td, font.info.descender),
-                endPoint=(glyph.width-self.clip+ta, font.info.ascender),
-                strokeColor=BLUE,
-                fillColor=None,
-                strokeWidth=1,
-                strokeDash=(10,10),
-                name="rightClip")
+        for name in self.zoneLayerNames:
+            if 'left' in name:
+                l = self.leftZonesLayer.getSublayer(name)
+                if l is not None:
+                    l.setVisible(hasDrawnLeft)
+            if 'right' in name:
+                l = self.rightZonesLayer.getSublayer(name)
+                if l is not None:
+                    l.setVisible(hasDrawnRight)
+                if self.currentGlyph is not None:
+                    l.setPosition((self.currentGlyph.width, 0))
 
-    
     def editThreshold(self, sender=None):
         v = None
         try:
