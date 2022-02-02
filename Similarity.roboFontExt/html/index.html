@@ -49,7 +49,7 @@ em{
 
 <ul>
 	<li>Open a Glyph window, then pick Similarity from the extensions menu - the Similarity window will appear.</li>
-	<li>The columns named <em>Left</em> and <em>Right</em> show the <em>similarity score</em>. This is a value that indicates how similar the profiles are. You will notice that only values very close to <em>1</em> make sense.</li>
+	<li>The columns named <em>Score </em> and <em>Score Right</em> show the <em>similarity score</em>. This is a value that indicates how similar the profiles are. You will notice that only values very close to <em>1</em> make sense.</li>
 	
 	<li>The columns named <em>Category</em> and <em>Range</em> show the Unicode category and Unicode Range name. If selected, the list will only show the glyphs in the same category or range as the current glyph.</li>
 	
@@ -91,12 +91,15 @@ em{
 
 <li>You will see that only values very close to <em>1.00</em> still make sense. But you can play with the Threshold slider to discover where all the glyphs are. Note that accents above glyphs can substantially change the profile. So while we may expect <em>/a</em> and <em>/aacute</em> to be very similar, the profiles might be different enough to rank further apart.</li>
 
+<li>
+	Accuracy: this is a game of statistics. Things that are similar are not the same. It will score some shapes higher than a person would. It might leave out glyphs that we would include. Whether a glyph is marked Green or Yellow is another level of interpretation. And yet, it has been a useful tool in nagivating the complex inner-consistencies of fonts. Use it wisely. 
+</li>
 
 </ul>
 
 <h2>Version</h2>
 <ul>
-<li>Experimental release 1.0.</li>
+<li>Experimental release 1.2.4</li>
 <li>There will be bugs and unacceptable errors in thinking.</li>
 </ul>
 

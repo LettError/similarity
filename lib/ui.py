@@ -3,7 +3,7 @@ import cosineSimilarity
 importlib.reload(cosineSimilarity)
 
 import vanilla
-import math, time
+import math, time, datetime
 import AppKit
 
 from cosineSimilarity import cosineSimilarity, SimilarGlyphsKey
@@ -55,7 +55,7 @@ class SimilarityUI(Subscriber, WindowController):
     def build(self):
         
         glyphEditor = self.getGlyphEditor()
-        self.clip = getDefault(self.clipPrefKey, 100)
+        self.clip = getDefault(self.clipPrefKey, 200)
         self.previousCurrentGlyph = None
         self.previewStrokeWidth = 1.4
         self.container = glyphEditor.extensionContainer(
@@ -104,34 +104,54 @@ class SimilarityUI(Subscriber, WindowController):
                     'editable':False,
                     'width': 50,
                 },
-                {   'title': "Left",
-                    'key':'scoreLeft',
-                    'editable':False,
-                    'width': 100,
-                },
-                {   'title': "Right",
-                    'key':'scoreRight',
-                    'editable':False,
-                    'width': 100,
-                },
+                #{   'title': "Left",
+                #   'key':'scoreLeft',
+                #   'editable':False,
+                #   'width': 100,
+                #},
+                {"title": "Score Left",
+                    'key': 'confidenceLeft',
+                    'width': 70,
+                     "cell": vanilla.LevelIndicatorListCell(style="continuous",
+                         minValue=0,
+                         maxValue=100,
+                         warningValue=95,
+                         criticalValue=75,
+                         )
+                 },
+                #{   'title': "Right",
+                #   'key':'scoreRight',
+                #   'editable':False,
+                #   'width': 100,
+                #},
+                {"title": "Score Right",
+                    'key': 'confidenceRight',
+                    'width': 70,
+                     "cell": vanilla.LevelIndicatorListCell(style="continuous",
+                         minValue=0,
+                         maxValue=100,
+                         warningValue=95,
+                         criticalValue=75,
+                         )
+                 },
                 {   'title': "▶︎",
                     'key':'rightMargin',
                     'editable':False,
                     'width': 50,
                 },
-                {   'title': "Cat",
+                {   'title': "U-Cat",
                     'key':'unicodeCategory',
                     'editable':False,
                     'width': 50,
                 },
-                {   'title': "Range",
+                {   'title': "U-Range",
                     'key':'unicodeRange',
                     'editable':False,
-                    'width': 150,
+                    'width': 180,
                 },
         ]
-        col1 = 100
-        col2 = 260
+        col1 = 20
+        col2 = 180
         colWidth = (col2-col1)
         col3 = col2+colWidth
         col4 = col3+colWidth
@@ -145,18 +165,18 @@ class SimilarityUI(Subscriber, WindowController):
             selectionCallback=self.selectItemsCallback,
             doubleClickCallback = self.listDoubleClickCallback
             )
-        self.w.cb1 = vanilla.CheckBox((col1, line1, 150, 20), "Above xHeight", value=zonePrefs[0], callback=self.zoneCallback)
-        self.w.cb2 = vanilla.CheckBox((col1, line2, 150, 20), "Baseline to xHeight", value=zonePrefs[1], callback=self.zoneCallback)
-        self.w.cb3 = vanilla.CheckBox((col1, line3, 150, 20), "Below baseline", value=zonePrefs[2], callback=self.zoneCallback)
-        self.w.cbuniCat = vanilla.CheckBox((col2, line1, -5, 20), "Unicode category", value=getDefault(self.unicodeCategoryPrefKey, 1), callback=self.update)
-        self.w.cbuniRange = vanilla.CheckBox((col2, line2, -5, 20), "Unicode range", value=getDefault(self.unicodeRangePrefKey, 1), callback=self.update)
+        self.w.cb1 = vanilla.CheckBox((col4, line1, 150, 20), "Above xHeight", value=zonePrefs[0], callback=self.zoneCallback)
+        self.w.cb2 = vanilla.CheckBox((col4, line2, 150, 20), "Baseline to xHeight", value=zonePrefs[1], callback=self.zoneCallback)
+        self.w.cb3 = vanilla.CheckBox((col4, line3, 150, 20), "Below baseline", value=zonePrefs[2], callback=self.zoneCallback)
+        self.w.cbuniCat = vanilla.CheckBox((col3, line1, -5, 20), "Unicode category", value=getDefault(self.unicodeCategoryPrefKey, 1), callback=self.update)
+        self.w.cbuniRange = vanilla.CheckBox((col3, line2, -5, 20), "Unicode range", value=getDefault(self.unicodeRangePrefKey, 1), callback=self.update)
 
-        self.w.threshold = vanilla.EditText((col4,line1,50,20), self.threshold, sizeStyle="small", callback=self.editThreshold)
-        self.w.thresholdSlider = vanilla.Slider((col3, line1, colWidth-10, 20), minValue=0, maxValue=1, value=self.threshold, callback=self.sliderCallback, continuous=True, sizeStyle="small")
-        self.w.thresholdCaption = vanilla.TextBox((col4+55,line1+2,100,20), "Threshold", sizeStyle="small")
+        self.w.threshold = vanilla.EditText((col2,line1,50,20), self.threshold, sizeStyle="small", callback=self.editThreshold)
+        self.w.thresholdSlider = vanilla.Slider((col1, line1, colWidth-10, 20), minValue=0, maxValue=1, value=self.threshold, callback=self.sliderCallback, continuous=True, sizeStyle="small")
+        self.w.thresholdCaption = vanilla.TextBox((col2+55,line1+2,100,20), "Threshold", sizeStyle="small")
  
-        self.w.clipSlider = vanilla.Slider((col3, line2, colWidth-10, 20), minValue=50, maxValue=300, value=self.clip, tickMarkCount=11, stopOnTickMarks=True, callback=self.clipSliderCallback, continuous=False, sizeStyle="small")
-        self.w.clipCaption = vanilla.TextBox((col4, line2, 120, 20), f"Clip: {self.clip}", sizeStyle="small")
+        self.w.clipSlider = vanilla.Slider((col1, line2, colWidth-10, 20), minValue=50, maxValue=300, value=self.clip, tickMarkCount=11, stopOnTickMarks=True, callback=self.clipSliderCallback, continuous=False, sizeStyle="small")
+        self.w.clipCaption = vanilla.TextBox((col2, line2, 120, 20), f"Clip: {self.clip}", sizeStyle="small")
  
         self.w.toSpaceCenter = vanilla.Button((10,-30,150,20), "To SpaceCenter", callback=self.toSpaceCenter)
         self.w.selectInFont = vanilla.Button((170,-30,150,20), "Select", callback=self.selectInFont)
@@ -253,6 +273,7 @@ class SimilarityUI(Subscriber, WindowController):
         setDefault(self.unicodeCategoryPrefKey, self.w.cbuniCat.get())
         setDefault(self.unicodeRangePrefKey, self.w.cbuniRange.get())
         setDefault(self.thresholdPrefKey, self.threshold)
+        setDefault(self.clipPrefKey, self.clip)
         zonePrefs = (self.w.cb1.get(), self.w.cb2.get(), self.w.cb3.get())
         setDefault(self.zonesPrefKey, zonePrefs)
         self.container.clearSublayers()
@@ -266,13 +287,14 @@ class SimilarityUI(Subscriber, WindowController):
     def glyphEditorDidSetGlyph(self, info):
         self.currentGlyph = info['glyph']
         if self.currentGlyph is not None:
+            self.zoneCallback()
             self.update()
             self._updateNeighbours(self.currentGlyph)
         
     def _updateNeighbours(self, glyph):
         if glyph is None: return
         font = glyph.font
-        italicSlantOffset = font.lib.get(roboFontItalicSlantLibKey, 0)
+        #italicSlantOffset = font.lib.get(roboFontItalicSlantLibKey, 0)
         self.leftPathLayer.clearSublayers()
         self.rightPathLayer.clearSublayers()
         selectedItems = [self.w.l[s] for s in self.w.l.getSelection()]
@@ -427,6 +449,7 @@ class SimilarityUI(Subscriber, WindowController):
                     rightMargin = '',
                     unicodeCategory=cat,
                     unicodeRange=rng,
+                    confidenceLeft=k*100,
                     ))
         rk = list(rankRight.keys())
         rk = sorted(rk, key = lambda x : float('-inf') if math.isnan(x) else x)
@@ -454,6 +477,7 @@ class SimilarityUI(Subscriber, WindowController):
                     rightMargin = rm,
                     unicodeCategory=cat,
                     unicodeRange=rng,
+                    confidenceRight=k*100,
                     ))
         self.w.l.set(items)
         end = time.time_ns()
