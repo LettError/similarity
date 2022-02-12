@@ -1,7 +1,6 @@
 import statistics
 import math
 import numpy
-from fontPens.marginPen import MarginPen
 from defcon import addRepresentationFactory, registerRepresentationFactory
 import defcon
 
@@ -108,7 +107,10 @@ def makeNormalizedProfile(glyph, clip=200):
     glyph.draw(mmp)
     hits = mmp.getMargins()
     for h in sampleHeights:
-        ta = math.tan(math.radians(-a)) * h
+        if a is not 0:
+            ta = math.tan(math.radians(-a)) * h
+        else:
+            ta = 0
         m = hits.get(h)
         if m is None:
             profile.append((h, None, None))
