@@ -55,10 +55,6 @@ def SimilarityRepresentationFactory(glyph, threshold=0.99,
             hits[score].append(other.name)
     return hits
     
-# example of set up of representations + parameters
-#        flat2 = other.getRepresentation("defcon.contour.flattened", approximateSegmentLength=segmentLength, segmentLines=True)
-#    cls.representationFactories[name] = dict(factory=factory, destructiveNotifications=destructiveNotifications)
-
 defcon.Glyph.representationFactories[SimilarGlyphsKey] = dict(
     factory=SimilarityRepresentationFactory, 
     destructiveNotifications=("Contour.PointsChanged",),
@@ -167,8 +163,6 @@ def getRange(values, zones):
     return ok
         
 def cosineSimilarity(first, second, side="left", zones=None, clip=200):
-    # compare normalized profiles of these glyphs according to cosine similarity
-    # https://www.delftstack.com/howto/python/cosine-similarity-between-lists-python/
     sides = {}
     firstProfile = first.getRepresentation(normalizedProfileKey, clip=clip)
     secondProfile = second.getRepresentation(normalizedProfileKey, clip=clip)
