@@ -48,6 +48,7 @@ class SimilarityUI(Subscriber, WindowController):
     thresholdPrefKey = "com.letterror.similarity.threshold"
     unicodeCategoryPrefKey = "com.letterror.similarity.unicodeCategory"
     unicodeRangePrefKey = "com.letterror.similarity.unicodeRange"
+    selectInterestingPrefKey = "com.letterror.similarity.selectInteresting"
     syncSpaceCenterPrefKey = "com.letterror.similarity.syncSpaceCenter"
     zonesPrefKey = "com.letterror.similarity.zones"
     clipPrefKey = "com.letterror.similarity.clip"
@@ -56,10 +57,11 @@ class SimilarityUI(Subscriber, WindowController):
         
         glyphEditor = self.getGlyphEditor()
         self.clip = getDefault(self.clipPrefKey, 200)
+        self.interestingMarginThreshold = 5
         self.previousCurrentGlyph = None
         self.previewStrokeWidth = 1.4
         self.container = glyphEditor.extensionContainer(
-            identifier="com.roboFont.NeighboursDemo.foreground",
+            identifier="com.lettError.similarity.foreground",
             location="background",
             clear=True)
         self.leftZonesLayer = self.container.appendPathSublayer(
@@ -104,11 +106,6 @@ class SimilarityUI(Subscriber, WindowController):
                     'editable':False,
                     'width': 50,
                 },
-                #{   'title': "Left",
-                #   'key':'scoreLeft',
-                #   'editable':False,
-                #   'width': 100,
-                #},
                 {"title": "Score Left",
                     'key': 'confidenceLeft',
                     'width': 70,
@@ -119,11 +116,6 @@ class SimilarityUI(Subscriber, WindowController):
                          criticalValue=75,
                          )
                  },
-                #{   'title': "Right",
-                #   'key':'scoreRight',
-                #   'editable':False,
-                #   'width': 100,
-                #},
                 {"title": "Score Right",
                     'key': 'confidenceRight',
                     'width': 70,
@@ -170,7 +162,7 @@ class SimilarityUI(Subscriber, WindowController):
         self.w.cb3 = vanilla.CheckBox((col4, line3, 150, 20), "Below baseline", value=zonePrefs[2], callback=self.zoneCallback)
         self.w.cbuniCat = vanilla.CheckBox((col3, line1, -5, 20), "Unicode category", value=getDefault(self.unicodeCategoryPrefKey, 1), callback=self.update)
         self.w.cbuniRange = vanilla.CheckBox((col3, line2, -5, 20), "Unicode range", value=getDefault(self.unicodeRangePrefKey, 1), callback=self.update)
-
+        self.w.cbSelectInteresting = vanilla.CheckBox((col1, line3, -5, 20), f"Select margin outliers (>{self.interestingMarginThreshold})", value=getDefault(self.selectInterestingPrefKey, 0), callback=self.update)
         self.w.threshold = vanilla.EditText((col2,line1,50,20), self.threshold, sizeStyle="small", callback=self.editThreshold)
         self.w.thresholdSlider = vanilla.Slider((col1, line1, colWidth-10, 20), minValue=0, maxValue=1, value=self.threshold, callback=self.sliderCallback, continuous=True, sizeStyle="small")
         self.w.thresholdCaption = vanilla.TextBox((col2+55,line1+2,100,20), "Threshold", sizeStyle="small")
@@ -272,6 +264,9 @@ class SimilarityUI(Subscriber, WindowController):
     def destroy(self, sender=None):
         setDefault(self.unicodeCategoryPrefKey, self.w.cbuniCat.get())
         setDefault(self.unicodeRangePrefKey, self.w.cbuniRange.get())
+        setDefault(self.selectInterestingPrefKey, self.w.cbSelectInteresting.get())
+        print("pref at destroy", getDefault(self.selectInterestingPrefKey, "nope"), self.w.cbSelectInteresting.get())
+        
         setDefault(self.thresholdPrefKey, self.threshold)
         setDefault(self.clipPrefKey, self.clip)
         zonePrefs = (self.w.cb1.get(), self.w.cb2.get(), self.w.cb3.get())
@@ -388,6 +383,8 @@ class SimilarityUI(Subscriber, WindowController):
             self.currentRange = None
             self.w.l.set([])
             return
+        leftMarginInteresting = []
+        rightMarginInteresting = []
         limitUnicodeCategory = self.w.cbuniCat.get()
         limitUnicodeRange = self.w.cbuniRange.get()
         self.currentCategory = u2c(this.unicode)
@@ -439,13 +436,15 @@ class SimilarityUI(Subscriber, WindowController):
                     rng = ''
                 lm = this.leftMargin-font[name].leftMargin
                 if lm == 0.0:
-                    lm = ""
+                    lmString = ""
                 else:
-                    lm = f'{lm:3.1f}'
+                    lmString = f'{lm:3.1f}'
                 items.append(dict(glyphName=name, 
                     scoreLeft=f"{k:3.5f}", 
                     scoreRight="", 
-                    leftMargin = lm,
+                    leftMargin = lmString,
+                    leftMarginValue = lm,
+                    rightMarginValue = None,
                     rightMargin = '',
                     unicodeCategory=cat,
                     unicodeRange=rng,
@@ -467,19 +466,32 @@ class SimilarityUI(Subscriber, WindowController):
                     rng = ''
                 rm = this.rightMargin-font[name].rightMargin
                 if rm == 0.0:
-                    rm = ""
+                    rmString = ""
                 else:
-                    rm = f'{rm:3.1f}'
+                    rmString = f'{rm:3.1f}'
                 items.append(dict(glyphName=name, 
                     scoreRight=f"{k:3.5f}", 
                     scoreLeft="",
                     leftMargin = '',
-                    rightMargin = rm,
+                    leftMarginValue = None,
+                    rightMargin = rmString,
+                    rightMarginValue = rm,
                     unicodeCategory=cat,
                     unicodeRange=rng,
                     confidenceRight=k*100,
                     ))
         self.w.l.set(items)
+        if self.w.cbSelectInteresting.get():
+            print("pref says select interesting")
+            selectThese = []
+            for index, item in enumerate(self.w.l):
+                if item['leftMarginValue'] is not None:
+                    if abs(item['leftMarginValue']) > self.interestingMarginThreshold:
+                        selectThese.append(index)
+                if item['rightMarginValue'] is not None:
+                    if abs(item['rightMarginValue']) > self.interestingMarginThreshold:
+                        selectThese.append(index)
+            self.w.l.setSelection(selectThese)
         end = time.time_ns()
         duration = (end-start) / (10 ** 9)
         self.w.calcTime.set(f'update: {duration:3.3f} seconds')
