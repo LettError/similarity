@@ -1,4 +1,4 @@
-import importlib
+∑import importlib
 import cosineSimilarity
 importlib.reload(cosineSimilarity)
 
@@ -265,7 +265,7 @@ class SimilarityUI(Subscriber, WindowController):
         setDefault(self.unicodeCategoryPrefKey, self.w.cbuniCat.get())
         setDefault(self.unicodeRangePrefKey, self.w.cbuniRange.get())
         setDefault(self.selectInterestingPrefKey, self.w.cbSelectInteresting.get())
-        print("pref at destroy", getDefault(self.selectInterestingPrefKey, "nope"), self.w.cbSelectInteresting.get())
+        #print("pref at destroy", getDefault(self.selectInterestingPrefKey, "nope"), self.w.cbSelectInteresting.get())
         
         setDefault(self.thresholdPrefKey, self.threshold)
         setDefault(self.clipPrefKey, self.clip)
@@ -482,7 +482,7 @@ class SimilarityUI(Subscriber, WindowController):
                     ))
         self.w.l.set(items)
         if self.w.cbSelectInteresting.get():
-            print("pref says select interesting")
+            #print("pref says select interesting")
             selectThese = []
             for index, item in enumerate(self.w.l):
                 if item['leftMarginValue'] is not None:
