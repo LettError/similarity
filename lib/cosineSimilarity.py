@@ -169,19 +169,24 @@ def cosineSimilarity(first, second, side="left", zones=None, clip=200):
     leftResult = rightResult = None            
     heights = [a for a,b,c in firstProfile] # the sample heights
     zoned = getRange(heights, zones)
+    # we need to manage the numpy error levels for this operation
+    # in some cases it will raise a lot of RuntimeWarning: invalid value encountered in double_scalars
+    # https://numpy.org/doc/stable/reference/generated/numpy.seterr.html
+    # we will store the original settings
+    old_settings = numpy.seterr(all='ignore')  #seterr to known value
+    result = None
     if side == "left":
         firstLeftProfile = [b for a,b,c in firstProfile if a in zoned]
         secondLeftProfile = [b for a,b,c in secondProfile if a in zoned]
         if firstLeftProfile and secondLeftProfile:
-            leftResult = dot(firstLeftProfile, secondLeftProfile)/(norm(firstLeftProfile)*norm(secondLeftProfile))
-            return float(leftResult)
+            result = float(dot(firstLeftProfile, secondLeftProfile)/(norm(firstLeftProfile)*norm(secondLeftProfile)))
     elif side=="right":
         firstRightProfile = [c for a,b,c in firstProfile if a in zoned]
         secondRightProfile = [c for a,b,c in secondProfile if a in zoned]
         if firstRightProfile and secondRightProfile:
-            rightResult = dot(firstRightProfile, secondRightProfile)/(norm(firstRightProfile)*norm(secondRightProfile))
-            return float(rightResult)
-    return None
+            result = float(dot(firstRightProfile, secondRightProfile)/(norm(firstRightProfile)*norm(secondRightProfile)))
+    numpy.seterr(**old_settings)  # reset to default
+    return result
 
 def compareGlyphs(font, members, side="left", zones=None):
     # see if the members of this group look like each other
