@@ -10,7 +10,7 @@ font = CurrentFont()
 
 t = 0.95    # the confidence threshold. Only show results > t
 luc = True    # only show glyphs in the same unicode category
-lur = True    # only show glyphs in the same unicode range
+lur = True    # only show glyphs in the same unicode script
 
 # zones are pairs of y values of the areas we specifically want to compare.
 # useful if you want to exclude certain bands.
@@ -32,7 +32,7 @@ side = "right" # look on the right side
 similars = g.getRepresentation(SimilarGlyphsKey,
     threshold=t, 
     sameUnicodeClass=luc,
-    sameUnicodeRange=lur,
+    sameUnicodeScript=lur,
     zones=zones,
     side=side,
     clip=clip

@@ -5,6 +5,7 @@ importlib.reload(cosineSimilarity)
 import vanilla
 import math, time, datetime
 import AppKit
+import fontTools.unicodedata
 
 from cosineSimilarity import cosineSimilarity, SimilarGlyphsKey
 
@@ -47,7 +48,7 @@ class SimilarityUI(Subscriber, WindowController):
     
     thresholdPrefKey = "com.letterror.similarity.threshold"
     unicodeCategoryPrefKey = "com.letterror.similarity.unicodeCategory"
-    unicodeRangePrefKey = "com.letterror.similarity.unicodeRange"
+    unicodeScriptPrefKey = "com.letterror.similarity.unicodeScript"
     selectInterestingPrefKey = "com.letterror.similarity.selectInteresting"
     syncSpaceCenterPrefKey = "com.letterror.similarity.syncSpaceCenter"
     zonesPrefKey = "com.letterror.similarity.zones"
@@ -93,8 +94,6 @@ class SimilarityUI(Subscriber, WindowController):
         zonePrefs = getDefault(self.zonesPrefKey, (1, 1, 1))
         self.currentName = None
         self.currentGlyph = None
-        self.currentCategory = None
-        self.currentRange = None
         glyphDescriptions = [
                 {   'title': "Name",
                     'key':'glyphName',
@@ -136,10 +135,10 @@ class SimilarityUI(Subscriber, WindowController):
                     'editable':False,
                     'width': 50,
                 },
-                {   'title': "U-Range",
-                    'key':'unicodeRange',
+                {   'title': "U-Script",
+                    'key':'unicodeScript',
                     'editable':False,
-                    'width': 180,
+                    'width': 150,
                 },
         ]
         col1 = 20
@@ -161,7 +160,7 @@ class SimilarityUI(Subscriber, WindowController):
         self.w.cb2 = vanilla.CheckBox((col4, line2, 150, 20), "Baseline to xHeight", value=zonePrefs[1], callback=self.zoneCallback)
         self.w.cb3 = vanilla.CheckBox((col4, line3, 150, 20), "Below baseline", value=zonePrefs[2], callback=self.zoneCallback)
         self.w.cbuniCat = vanilla.CheckBox((col3, line1, -5, 20), "Unicode category", value=getDefault(self.unicodeCategoryPrefKey, 1), callback=self.update)
-        self.w.cbuniRange = vanilla.CheckBox((col3, line2, -5, 20), "Unicode range", value=getDefault(self.unicodeRangePrefKey, 1), callback=self.update)
+        self.w.cbuniScript = vanilla.CheckBox((col3, line2, -5, 20), "Unicode script", value=getDefault(self.unicodeScriptPrefKey, 1), callback=self.update)
         self.w.cbSelectInteresting = vanilla.CheckBox((col1, line3, -5, 20), f"Select margin outliers (>{self.interestingMarginThreshold})", value=getDefault(self.selectInterestingPrefKey, 0), callback=self.update)
         self.w.threshold = vanilla.EditText((col2,line1,50,20), self.threshold, sizeStyle="small", callback=self.editThreshold)
         self.w.thresholdSlider = vanilla.Slider((col1, line1, colWidth-10, 20), minValue=0, maxValue=1, value=self.threshold, callback=self.sliderCallback, continuous=True, sizeStyle="small")
@@ -263,10 +262,8 @@ class SimilarityUI(Subscriber, WindowController):
 
     def destroy(self, sender=None):
         setDefault(self.unicodeCategoryPrefKey, self.w.cbuniCat.get())
-        setDefault(self.unicodeRangePrefKey, self.w.cbuniRange.get())
-        setDefault(self.selectInterestingPrefKey, self.w.cbSelectInteresting.get())
-        #print("pref at destroy", getDefault(self.selectInterestingPrefKey, "nope"), self.w.cbSelectInteresting.get())
-        
+        setDefault(self.unicodeScriptPrefKey, self.w.cbuniScript.get())
+        setDefault(self.selectInterestingPrefKey, self.w.cbSelectInteresting.get())        
         setDefault(self.thresholdPrefKey, self.threshold)
         setDefault(self.clipPrefKey, self.clip)
         zonePrefs = (self.w.cb1.get(), self.w.cb2.get(), self.w.cb3.get())
@@ -379,16 +376,12 @@ class SimilarityUI(Subscriber, WindowController):
         start = time.time_ns()
         this = self.currentGlyph
         if this is None:
-            self.currentCategory = None
-            self.currentRange = None
             self.w.l.set([])
             return
         leftMarginInteresting = []
         rightMarginInteresting = []
         limitUnicodeCategory = self.w.cbuniCat.get()
-        limitUnicodeRange = self.w.cbuniRange.get()
-        self.currentCategory = u2c(this.unicode)
-        self.currentRange = u2r(this.unicode)
+        limitUnicodeScript = self.w.cbuniScript.get()
         font = CurrentFont()
         if this is None:
             self.w.l.set([])
@@ -407,7 +400,7 @@ class SimilarityUI(Subscriber, WindowController):
         rankLeft = this.getRepresentation(SimilarGlyphsKey,
             threshold=self.threshold, 
             sameUnicodeClass=limitUnicodeCategory,
-            sameUnicodeRange=limitUnicodeRange,
+            sameUnicodeScript=limitUnicodeScript,
             zones=z,
             side="left",
             clip=self.clip
@@ -415,7 +408,7 @@ class SimilarityUI(Subscriber, WindowController):
         rankRight = this.getRepresentation(SimilarGlyphsKey,
             threshold=self.threshold,
             sameUnicodeClass=limitUnicodeCategory,
-            sameUnicodeRange=limitUnicodeRange,
+            sameUnicodeScript=limitUnicodeScript,
             zones=z,
             side="right",
             clip=self.clip
@@ -439,6 +432,11 @@ class SimilarityUI(Subscriber, WindowController):
                     lmString = ""
                 else:
                     lmString = f'{lm:3.1f}'
+                if font[name].unicode is not None:
+                    sc = fontTools.unicodedata.script(font[name].unicode)
+                    sc = fontTools.unicodedata.script_name(sc)
+                else:
+                    sc = ""
                 items.append(dict(glyphName=name, 
                     scoreLeft=f"{k:3.5f}", 
                     scoreRight="", 
@@ -447,7 +445,7 @@ class SimilarityUI(Subscriber, WindowController):
                     rightMarginValue = None,
                     rightMargin = '',
                     unicodeCategory=cat,
-                    unicodeRange=rng,
+                    unicodeScript = sc, 
                     confidenceLeft=k*100,
                     ))
         rk = list(rankRight.keys())
@@ -469,6 +467,11 @@ class SimilarityUI(Subscriber, WindowController):
                     rmString = ""
                 else:
                     rmString = f'{rm:3.1f}'
+                if font[name].unicode is not None:
+                    sc = fontTools.unicodedata.script(font[name].unicode)
+                    sc = fontTools.unicodedata.script_name(sc)
+                else:
+                    sc = ""
                 items.append(dict(glyphName=name, 
                     scoreRight=f"{k:3.5f}", 
                     scoreLeft="",
@@ -477,12 +480,11 @@ class SimilarityUI(Subscriber, WindowController):
                     rightMargin = rmString,
                     rightMarginValue = rm,
                     unicodeCategory=cat,
-                    unicodeRange=rng,
+                    unicodeScript = sc, 
                     confidenceRight=k*100,
                     ))
         self.w.l.set(items)
         if self.w.cbSelectInteresting.get():
-            #print("pref says select interesting")
             selectThese = []
             for index, item in enumerate(self.w.l):
                 if item['leftMarginValue'] is not None:
@@ -506,4 +508,5 @@ class SimilarityUI(Subscriber, WindowController):
 
 
 registerGlyphEditorSubscriber(SimilarityUI)
+print("hey")
 

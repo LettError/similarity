@@ -9,6 +9,7 @@ from numpy import dot
 from numpy.linalg import norm
 from glyphNameFormatter.reader import u2r, u2c
 from multipleMarginPen import MultipleMarginPen
+import fontTools.unicodedata
 
 def NormalizedGlyphProfileFactory(glyph, clip=200):
     la, ra, profile = makeNormalizedProfile(glyph, clip=clip)
@@ -27,22 +28,27 @@ SimilarGlyphsKey = "com.letterror.similarity.similarGlyphs"
 
 def SimilarityRepresentationFactory(glyph, threshold=0.99, 
                 sameUnicodeClass=True, 
-                sameUnicodeRange=True, 
+                sameUnicodeRange=False, 
+                sameUnicodeScript=True,
                 zones=None, 
                 side="left", 
                 clip=200, 
                 ):
     # return the glyphs that are similar on the left
-    thisUnicodeRange = u2r(glyph.unicode)
     thisUnicodeClass = u2c(glyph.unicode)
+    if glyph.unicode is not None:
+        thisUnicodeScript = fontTools.unicodedata.script(glyph.unicode)
+    else:
+        thisUnicodeScript = None
     hits = {}
     font = glyph.font
     for other in font:
-        otherUnicodeRange = u2r(other.unicode)
-        if sameUnicodeRange and (otherUnicodeRange != thisUnicodeRange) and thisUnicodeRange is not None: continue
-        otherUnicodeClass = u2c(other.unicode)
-        if sameUnicodeClass and (otherUnicodeClass != thisUnicodeClass) and thisUnicodeClass is not None: continue
-        # ok here we should only have the glyphs with same unicode range and class if we want to be selective
+        if other.unicode is not None:
+            otherUnicodeClass = u2c(other.unicode)
+            if sameUnicodeClass and (otherUnicodeClass != thisUnicodeClass) and thisUnicodeClass is not None: continue
+            otherUnicodeScript = fontTools.unicodedata.script(other.unicode)
+            if sameUnicodeScript and (otherUnicodeScript != thisUnicodeScript) and thisUnicodeScript is not None: continue
+        # ok here we should only have the glyphs with same unicode script and class if we want to be selective
         score = cosineSimilarity(glyph, other, side=side, zones=zones, clip=clip)
         if threshold is not None:
             if score >= threshold:
@@ -60,7 +66,7 @@ defcon.Glyph.representationFactories[SimilarGlyphsKey] = dict(
     destructiveNotifications=("Contour.PointsChanged",),
     threshold=0.99, 
     sameUnicodeClass=True, 
-    sameUnicodeRange=True, 
+    sameUnicodeScript=True, 
     zones=None, 
     side="left"
     )
