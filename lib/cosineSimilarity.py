@@ -54,14 +54,16 @@ def SimilarityRepresentationFactory(glyph, threshold=0.99,
             if sameUnicodeScript and (otherUnicodeScript != thisUnicodeScript) and thisUnicodeScript is not None:
                 #print(f"B ----- {glyph.name}: {otherUnicodeScript} {thisUnicodeScript}")
                 continue
-        else:
-            # the other.unicode is None
-            # skip comparisons between a glyph that has a unicode and the other that does not.
-            # this may skip some alternates.
-            # this may need to be addressed with pseudo-unicodes
-            if glyph.unicode is not None:
-                print(f"\tD ----- {glyph.name}: {glyph.unicode} / {other.name} {other.unicode}")
-                continue
+
+        # the other.unicode is None
+        # skip comparisons between a glyph that has a unicode and the other that does not.
+        # this may skip some alternates.
+        # this may need to be addressed with pseudo-unicodes
+        if glyph.unicode is not None and glyph.unicode is None:
+            #print(f"\tD ----- {glyph.name}: {glyph.unicode} / {other.name} {other.unicode}")
+            continue
+        if glyph.unicode is None:
+            continue
                 
         #print(f"C ----- {glyph.name}: {glyph.unicode} / {other.name} {other.unicode}")                
         # ok here we should only have the glyphs with same unicode script and class if we want to be selective
