@@ -98,7 +98,7 @@ class SimilarityUI(Subscriber, WindowController):
                 {   'title': "Name",
                     'key':'glyphName',
                     'editable':False,
-                    'width': 150,
+                    'width': 250,
                 },
                 {   'title': "◀︎",
                     'key':'leftMargin',
