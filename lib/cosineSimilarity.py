@@ -1,3 +1,4 @@
+
 import statistics
 import math
 import numpy
@@ -43,11 +44,26 @@ def SimilarityRepresentationFactory(glyph, threshold=0.99,
     hits = {}
     font = glyph.font
     for other in font:
+        
         if other.unicode is not None:
             otherUnicodeClass = u2c(other.unicode)
-            if sameUnicodeClass and (otherUnicodeClass != thisUnicodeClass) and thisUnicodeClass is not None: continue
             otherUnicodeScript = fontTools.unicodedata.script(other.unicode)
-            if sameUnicodeScript and (otherUnicodeScript != thisUnicodeScript) and thisUnicodeScript is not None: continue
+            if sameUnicodeClass and (otherUnicodeClass != thisUnicodeClass) and thisUnicodeClass is not None:
+                #print(f"A ----- {glyph.name}: {otherUnicodeScript} {thisUnicodeScript}")                
+                continue
+            if sameUnicodeScript and (otherUnicodeScript != thisUnicodeScript) and thisUnicodeScript is not None:
+                #print(f"B ----- {glyph.name}: {otherUnicodeScript} {thisUnicodeScript}")
+                continue
+        else:
+            # the other.unicode is None
+            # skip comparisons between a glyph that has a unicode and the other that does not.
+            # this may skip some alternates.
+            # this may need to be addressed with pseudo-unicodes
+            if glyph.unicode is not None:
+                print(f"\tD ----- {glyph.name}: {glyph.unicode} / {other.name} {other.unicode}")
+                continue
+                
+        #print(f"C ----- {glyph.name}: {glyph.unicode} / {other.name} {other.unicode}")                
         # ok here we should only have the glyphs with same unicode script and class if we want to be selective
         score = cosineSimilarity(glyph, other, side=side, zones=zones, clip=clip)
         if threshold is not None:
