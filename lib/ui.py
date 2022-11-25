@@ -166,7 +166,7 @@ class SimilarityUI(Subscriber, WindowController):
         self.w.thresholdSlider = vanilla.Slider((col1, line1, colWidth-10, 20), minValue=0, maxValue=1, value=self.threshold, callback=self.sliderCallback, continuous=True, sizeStyle="small")
         self.w.thresholdCaption = vanilla.TextBox((col2+55,line1+2,100,20), "Threshold", sizeStyle="small")
  
-        self.w.clipSlider = vanilla.Slider((col1, line2, colWidth-10, 20), minValue=50, maxValue=300, value=self.clip, tickMarkCount=11, stopOnTickMarks=True, callback=self.clipSliderCallback, continuous=False, sizeStyle="small")
+        self.w.clipSlider = vanilla.Slider((col1, line2, colWidth-10, 20), minValue=50, maxValue=800, value=self.clip, tickMarkCount=11, stopOnTickMarks=True, callback=self.clipSliderCallback, continuous=False, sizeStyle="small")
         self.w.clipCaption = vanilla.TextBox((col2, line2, 120, 20), f"Clip: {self.clip}", sizeStyle="small")
  
         self.w.toSpaceCenter = vanilla.Button((10,-30,150,20), "To SpaceCenter", callback=self.toSpaceCenter)
