@@ -68,15 +68,16 @@ def SimilarityRepresentationFactory(glyph, threshold=0.99,
         #print(f"C ----- {glyph.name}: {glyph.unicode} / {other.name} {other.unicode}")                
         # ok here we should only have the glyphs with same unicode script and class if we want to be selective
         score = cosineSimilarity(glyph, other, side=side, zones=zones, clip=clip)
-        if threshold is not None:
-            if score >= threshold:
+        if score is not None:
+            if threshold is not None:
+                if score >= threshold:
+                    if not score in hits:
+                        hits[score] = []
+                    hits[score].append(other.name)
+            else:
                 if not score in hits:
                     hits[score] = []
                 hits[score].append(other.name)
-        else:
-            if not score in hits:
-                hits[score] = []
-            hits[score].append(other.name)
     return hits
     
 defcon.Glyph.representationFactories[SimilarGlyphsKey] = dict(
