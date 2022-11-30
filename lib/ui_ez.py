@@ -1,8 +1,9 @@
 import ezui
 
 import time, math, random
+from mojo.events import postEvent
 from pprint import pprint
-from mojo.subscriber import Subscriber, WindowController, registerRoboFontSubscriber
+from mojo.subscriber import Subscriber, WindowController, registerSubscriberEvent, registerRoboFontSubscriber, registerGlyphEditorSubscriber, unregisterGlyphEditorSubscriber
 from mojo.events import addObserver, removeObserver
 from mojo.UI import CurrentSpaceCenter, OpenSpaceCenter, setDefault, getDefault, OpenGlyphWindow
 from glyphNameFormatter.reader import u2r, u2c
@@ -14,6 +15,15 @@ windowTitleTemplate = "LTR Similarity: {name}"
 
 sidebarOpenSymbol = ezui.makeImage(symbolName="sidebar.left")
 sidebarClosedSymbol = ezui.makeImage(symbolName="rectangle")
+
+SIMILARITY_DATA_KEY = "LTRSimilarity_data"
+DEBUG = True
+
+
+RED = (1, 0, 0, 0.3)
+BLUE = (.5, 0, 1, 0.3)
+REDZone = (1, 0, 0, 0.05)
+BLUEZone = (.5, 0, 1, 0.05)
 
 
 
@@ -122,6 +132,7 @@ class SimilarityWindowController(Subscriber, ezui.WindowController):
             ),
 
             resultsTable=dict(
+                selectionCallback=self.selectItemsCallback,
                 columnDescriptions = [
                     dict(
                         identifier="glyphName",
@@ -195,23 +206,32 @@ class SimilarityWindowController(Subscriber, ezui.WindowController):
         self.w.bind("close", self.destroy)        
         self.table =  self.w.getItem("resultsTable")
 
-    def roboFontDidSwitchCurrentGlyph(self, info):
-        textBox = self.w.getItem("glyphNameTextBox")
-        item = info['glyph']
-        if item is None:
+    def selectItemsCallback(self, sender):
+        print("table selectItemsCallback", sender)
+        #self.updateProfile()
+        self.postSelectedItems()
+        #self._updateNeighbours(self.currentGlyph)
+
+    def roboFontDidSwitchCurrentGlyph(self, info=None):
+        glyph = None
+        if info is not None:
+            glyph = info['glyph']
+        if glyph is None:
             self.currentGlyph = None
             self.w.setTitle(f"LTR Similarity")
-            self.table.clear()
             self.setZones()
         else:
-            self.currentGlyph = info['glyph']
-            self.glyphName = self.currentGlyph.name
-            self.w.setTitle(f"LTR Similarity: {self.glyphName}")
-            self.setZones()
-            self.updateProfile()
-
+            self.currentGlyph = glyph
+            self.w.setTitle(f"LTR Similarity: {self.currentGlyph.name}")
+        self.setZones()
+        self.updateProfile()
+        self.postSelectedItems()
+    
     def started(self):
         #print("started")
+        # start glypheditor subscriber when the window opens
+        self.roboFontDidSwitchCurrentGlyph()
+        registerGlyphEditorSubscriber(DrawSimilars)
         self.w.open()
     
     def destroy(self, something=None):
@@ -223,6 +243,7 @@ class SimilarityWindowController(Subscriber, ezui.WindowController):
         setDefault(self.clipPrefKey, self.clip)
         setDefault(self.zonesPrefKey, [int(v) for v in self.zonesSelection])
         setDefault(self.selectInterestingPrefKey, self.marginOutliers)
+        unregisterGlyphEditorSubscriber(DrawSimilars)
 
     def setZones(self):
         aboveX = self.w.getItem('aboveXHeightCheckbox').get()
@@ -286,29 +307,11 @@ class SimilarityWindowController(Subscriber, ezui.WindowController):
         if self.currentGlyph is not None:
             name = self.currentGlyph.name
             text = f"/{name}/space/space{'/'+'/'.join(leftNames)} \\n/{name}/space{'/'+'/'.join(rightNames)}"
-            #sc = CurrentSpaceCenter(self.currentGlyph.font)
-            #if sc is None:
             OpenSpaceCenter(self.currentGlyph.font)
             sc = CurrentSpaceCenter(self.currentGlyph.font)
             sc.setRaw(text)
 
-    
     def updateProfile(self, sender=None):
-        
-        testDict = dict(
-                glyphName="test",
-                leftMargin="test",
-                leftMarginValue=0,
-                rightMargin="test",
-                rightMarginValue=0,
-                scoreLeft="",
-                scoreRight="",
-                confidenceLeft=random.randint(0, 100),
-                confidenceRight=random.randint(0, 100),
-                unicodeCategory="test",
-                unicodeScript="test",
-            )
-        
         start = time.time_ns()
         this = self.currentGlyph
         if this is None:
@@ -364,6 +367,8 @@ class SimilarityWindowController(Subscriber, ezui.WindowController):
                 leftData = dict(glyphName=name, 
                     scoreLeft=f"{k:3.5f}", 
                     scoreRight="", 
+                    scoreLeftValue = k,
+                    scoreRightValue = 0,
                     leftMargin = lmString,
                     leftMarginValue = lm,
                     rightMarginValue = None,
@@ -371,7 +376,8 @@ class SimilarityWindowController(Subscriber, ezui.WindowController):
                     unicodeCategory=cat,
                     unicodeScript = sc, 
                     confidenceLeft = int(k*100),
-                    confidenceRight = 0
+                    confidenceRight = 0,
+                    side="left"
                     )
                 items.append(leftData)
         rk = list(rankRight.keys())
@@ -401,6 +407,8 @@ class SimilarityWindowController(Subscriber, ezui.WindowController):
                 rightData = dict(glyphName=name, 
                     scoreRight=f"{k:3.5f}", 
                     scoreLeft = "",
+                    scoreLeftValue = 0,
+                    scoreRightValue = k,
                     leftMargin = '',
                     leftMarginValue = None,
                     rightMargin = rmString,
@@ -408,24 +416,30 @@ class SimilarityWindowController(Subscriber, ezui.WindowController):
                     unicodeCategory=cat,
                     unicodeScript = sc, 
                     confidenceRight = int(k*100),
-                    confidenceLeft = 0                   
+                    confidenceLeft = 0,
+                    side="right"
                     )
                 items.append(rightData)
         # setting the items
         self.table.set(items)
+        end = time.time_ns()
+        duration = (end-start) / (10 ** 9)
+        self.w.getItem("speedLabel").set(f'update: {duration:3.3f} seconds')
+    
+    def selectGlyphsWithInterestingMargins(self):        
+        selectedItems = []
         if self.marginOutliers:
             selectThese = []
             for index, item in enumerate(self.table.get()):
                 if item['leftMarginValue'] is not None:
                     if abs(item['leftMarginValue']) > self.interestingMarginThreshold:
                         selectThese.append(index)
+                        selectedItems.append(item)
                 if item['rightMarginValue'] is not None:
                     if abs(item['rightMarginValue']) > self.interestingMarginThreshold:
                         selectThese.append(index)
+                        selectedItems.append(item)
             self.table.setSelectedIndexes(selectThese)
-        end = time.time_ns()
-        duration = (end-start) / (10 ** 9)
-        self.w.getItem("speedLabel").set(f'update: {duration:3.3f} seconds')
         # what does this do?
         if self.previousCurrentGlyph is not None:
             selectThese = []
@@ -435,8 +449,162 @@ class SimilarityWindowController(Subscriber, ezui.WindowController):
             if selectThese:
                 self.table.setSelectedIndexes(selectThese)
             self.previousCurrentGlyph = None
+        
+    def postSelectedItems(self):        
+        postEvent(f"{SIMILARITY_DATA_KEY}.ValueChanged", value=self.table.getSelectedItems())
 
-#SimilarityWindowController()
-print("hey")
+
+class DrawSimilars(Subscriber):
+    def build(self):
+        self.previewStrokeWidth = 1.4
+        self.data = []
+        self.glyphEditor = self.getGlyphEditor()
+        print('build DrawSimilars', self.glyphEditor)
+        self.container = self.glyphEditor.extensionContainer(
+            identifier="com.lettError.similarity.foreground",
+            location="background",
+            clear=True)
+        # self.leftZonesLayer = self.container.appendPathSublayer(
+        #     strokeColor=None,
+        #     fillColor=REDZone,
+        #     name="leftZones")
+        self.leftPathLayer = self.container.appendPathSublayer(
+            strokeColor=RED,
+            fillColor=None,
+            strokeWidth=2,
+            name="leftNeighbour")
+        # self.rightZonesLayer = self.container.appendPathSublayer(
+        #     strokeColor=None,
+        #     fillColor=BLUEZone,
+        #     name="rightZones")
+        self.rightPathLayer = self.container.appendPathSublayer(
+            strokeColor=BLUE,
+            fillColor=None,
+            strokeWidth=2,
+            name="rightNeighbour")
+        #self.leftClipLayer = self.container.appendLineSublayer()
+        #self.rightClipLayer = self.container.appendLineSublayer()
+
+    def started(self):
+        print('started DrawSimilars')
+
+    def destroy(self, sender=None):
+        print('destroy DrawSimilars')
+
+    def glyphEditorWillClose(self, info):
+        print('glyphEditorWillClose DrawSimilars')
+
+    def glyphEditorDidSetGlyph(self, info):
+        print("xx glyphEditorDidSetGlyph")
+        self.data = []
+        #self.currentGlyph = info['glyph']
+        #if self.currentGlyph is not None:
+        #    self.zoneCallback()
+        #    self.update()
+        #    self._updateNeighbours(self.currentGlyph)
+
+    def similiarityDataChanged(self, info):
+        self.data = info["lowLevelEvents"][-1]["value"]
+        print("similiarityDataChanged", len(self.data))
+        print("similiarityDataChanged", self.glyphEditor.getGlyph())
+
+        self.leftPathLayer.clearSublayers()
+        self.rightPathLayer.clearSublayers()
+        
+        glyph = self.glyphEditor.getGlyph()
+        if glyph is None:
+            print("huh, no glyph?")
+            return
+            
+        font = glyph.font
+        
+        for item in self.data:
+            simGlyph = font[item['glyphName']]
+            glyphPath = simGlyph.getRepresentation("merz.CGPath")
+            print(item)
+            if item['side'] == "left":
+                if item.get('scoreLeftValue')>0:
+                    pp = self.leftPathLayer.appendPathSublayer(
+                        strokeColor=RED,                    
+                        fillColor=None,
+                        strokeWidth=self.previewStrokeWidth,
+                        name="leftNeighbour")
+                    pp.setPath(glyphPath)
+                    #pp.setPosition((-simGlyph.leftMargin, 0))
+                    hasDrawnLeft = True
+            elif item['side'] == "right":
+                if item.get('scoreRightValue')>0:
+                    pp = self.rightPathLayer.appendPathSublayer(
+                        strokeColor=BLUE,                    
+                        fillColor=None,
+                        strokeWidth=self.previewStrokeWidth,
+                        name="rightNeighbour")
+                    pp.setPath(glyphPath)
+                    pp.setPosition((-simGlyph.width + glyph.width, 0))
+                    hasDrawnRight = True
+        
+        #for item in self.data:
+        #    print(self.glyphEditor.glyph, item)
+        #    if item['side'] == "left":
+                
+
+    def _updateNeighbours(self, glyph):
+        if glyph is None: return
+        font = glyph.font
+        #italicSlantOffset = font.lib.get(roboFontItalicSlantLibKey, 0)
+        self.leftPathLayer.clearSublayers()
+        self.rightPathLayer.clearSublayers()
+        selectedItems = [self.w.l[s] for s in self.w.l.getSelection()]
+        hasDrawnLeft = False
+        hasDrawnRight = False
+        for item in selectedItems:
+            simGlyph = font[item['glyphName']]
+            glyphPath = simGlyph.getRepresentation("merz.CGPath")
+            if len(item.get('scoreLeft')) > 0:
+                pp = self.leftPathLayer.appendPathSublayer(
+                    strokeColor=RED,                    
+                    fillColor=None,
+                    strokeWidth=self.previewStrokeWidth,
+                    name="leftNeighbour")
+                pp.setPath(glyphPath)
+                hasDrawnLeft = True
+            elif len(item.get('scoreRight')) > 0:
+                pp = self.rightPathLayer.appendPathSublayer(
+                    strokeColor=BLUE,                    
+                    fillColor=None,
+                    strokeWidth=self.previewStrokeWidth,
+                    name="rightNeighbour")
+                pp.setPath(glyphPath)
+                pp.setPosition((-simGlyph.width + glyph.width, 0))
+                hasDrawnRight = True
+        for name in self.zoneLayerNames:
+            if 'left' in name:
+                l = self.leftZonesLayer.getSublayer(name)
+                if l is not None:
+                    l.setVisible(hasDrawnLeft)
+            if 'right' in name:
+                l = self.rightZonesLayer.getSublayer(name)
+                if l is not None:
+                    l.setVisible(hasDrawnRight)
+                if self.currentGlyph is not None:
+                    l.setPosition((self.currentGlyph.width, 0))
+        
 
 registerRoboFontSubscriber(SimilarityWindowController)
+
+if __name__ == "__main__":
+    #SimilarityWindowController()
+    print("hey")
+
+
+
+    registerSubscriberEvent(
+        subscriberEventName=f"{SIMILARITY_DATA_KEY}.ValueChanged",
+        methodName="similiarityDataChanged",
+        lowLevelEventNames=[f"{SIMILARITY_DATA_KEY}.ValueChanged"],
+        dispatcher="roboFont",
+        documentation="Send new similarity data",
+        delay=0.01,
+        debug=DEBUG
+    )
+
