@@ -45,6 +45,7 @@ class SimilarityWindowController(Subscriber, ezui.WindowController):
         self.marginOutliers = getDefault(self.selectInterestingPrefKey, 1)
         self.threshold = float(getDefault(self.thresholdPrefKey, 1))
         self.clip = float(getDefault(self.clipPrefKey, 200))
+        self.italicAngle = 0
         self.currentGlyph = None
         self.showSimilar = 30
         self.interestingMarginThreshold = 5
@@ -133,6 +134,7 @@ class SimilarityWindowController(Subscriber, ezui.WindowController):
 
             resultsTable=dict(
                 selectionCallback=self.selectItemsCallback,
+                doubleClickCallback=self.listDoubleClickCallback,
                 columnDescriptions = [
                     dict(
                         identifier="glyphName",
@@ -212,6 +214,14 @@ class SimilarityWindowController(Subscriber, ezui.WindowController):
         self.postSelectedItems()
         #self._updateNeighbours(self.currentGlyph)
 
+    def listDoubleClickCallback(self, sender):
+        # after double clicking, can we see the previous currentglyph
+        # selected in the list?
+        self.previousCurrentGlyph = self.currentGlyph.name
+        selectedItems = self.table.getSelectedItems()
+        name = selectedItems[0].get('glyphName')
+        OpenGlyphWindow(CurrentFont()[name])
+
     def roboFontDidSwitchCurrentGlyph(self, info=None):
         glyph = None
         if info is not None:
@@ -220,17 +230,25 @@ class SimilarityWindowController(Subscriber, ezui.WindowController):
             self.currentGlyph = None
             self.w.setTitle(f"LTR Similarity")
             self.setZones()
+            self.italicAngle = 0
         else:
-            self.currentGlyph = glyph
-            self.w.setTitle(f"LTR Similarity: {self.currentGlyph.name}")
-        self.setZones()
-        self.updateProfile()
+            if self.currentGlyph != glyph:
+                # new!
+                self.currentGlyph = glyph
+                self.italicAngle = glyph.font.info.italicAngle
+                self.w.setTitle(f"LTR Similarity: {self.currentGlyph.name}")
+                self.setZones()
+                self.updateProfile()
         self.postSelectedItems()
+        self.postZones()
     
     def started(self):
         #print("started")
         # start glypheditor subscriber when the window opens
-        self.roboFontDidSwitchCurrentGlyph()
+        #self.roboFontDidSwitchCurrentGlyph()
+        glyph = CurrentGlyph()
+        if glyph is not None:
+            self.roboFontDidSwitchCurrentGlyph(info=dict(glyph=glyph))
         registerGlyphEditorSubscriber(DrawSimilars)
         self.w.open()
     
@@ -249,7 +267,6 @@ class SimilarityWindowController(Subscriber, ezui.WindowController):
         aboveX = self.w.getItem('aboveXHeightCheckbox').get()
         baseToX = self.w.getItem('baselineToXHeightCheckbox').get()
         belowBase = self.w.getItem('belowBaselineCheckbox').get()
-
         zones = None
         if self.currentGlyph is not None:
             zones = []
@@ -272,6 +289,7 @@ class SimilarityWindowController(Subscriber, ezui.WindowController):
         self.threshold = float(itemValues.get('thresholdSlider'))
         self.setZones()
         self.updateProfile()
+        self.postZones()
 
     def toggleSettingsButtonCallback(self, sender):
         # XXX toggle the pane when Splits is deployed
@@ -453,30 +471,41 @@ class SimilarityWindowController(Subscriber, ezui.WindowController):
     def postSelectedItems(self):        
         postEvent(f"{SIMILARITY_DATA_KEY}.ValueChanged", value=self.table.getSelectedItems())
 
+    def postZones(self):
+        data = {'zones':self.zones,
+            'clip':self.clip,
+            'angle':self.italicAngle,
+            'width':self.currentGlyph.width,
+            }
+        postEvent(f"{SIMILARITY_DATA_KEY}.ZonesChanged", value=data)
+
 
 class DrawSimilars(Subscriber):
     def build(self):
         self.previewStrokeWidth = 1.4
         self.data = []
+        self.zones = []
+        self.zoneLayerNames = []
+        self.clip = 0
         self.glyphEditor = self.getGlyphEditor()
         print('build DrawSimilars', self.glyphEditor)
         self.container = self.glyphEditor.extensionContainer(
             identifier="com.lettError.similarity.foreground",
             location="background",
             clear=True)
-        # self.leftZonesLayer = self.container.appendPathSublayer(
-        #     strokeColor=None,
-        #     fillColor=REDZone,
-        #     name="leftZones")
+        self.leftZonesLayer = self.container.appendPathSublayer(
+            strokeColor=None,
+            fillColor=REDZone,
+            name="leftZones")
         self.leftPathLayer = self.container.appendPathSublayer(
             strokeColor=RED,
             fillColor=None,
             strokeWidth=2,
             name="leftNeighbour")
-        # self.rightZonesLayer = self.container.appendPathSublayer(
-        #     strokeColor=None,
-        #     fillColor=BLUEZone,
-        #     name="rightZones")
+        self.rightZonesLayer = self.container.appendPathSublayer(
+            strokeColor=None,
+            fillColor=BLUEZone,
+            name="rightZones")
         self.rightPathLayer = self.container.appendPathSublayer(
             strokeColor=BLUE,
             fillColor=None,
@@ -503,14 +532,55 @@ class DrawSimilars(Subscriber):
         #    self.update()
         #    self._updateNeighbours(self.currentGlyph)
 
+    def similiarityZonesChanged(self, info):
+        data = info["lowLevelEvents"][-1]["value"]
+        self.zones = data['zones']
+        self.clip = data['clip']
+        self.italicAngle = data.get('angle',0)
+        self.width = data.get("width", 0)
+        print('self.zones', self.zones)
+        self.leftZonesLayer.clearSublayers()
+        self.rightZonesLayer.clearSublayers()
+        self.zoneLayerNames = []
+        if self.zones is not None:
+            if self.italicAngle is None:
+                self.italicAngle = 0
+            for mn, mx in self.zones:
+                zoneName = f'leftZone_{mn}_{mx}'
+                self.zoneLayerNames.append(zoneName)
+                leftZoneLayer = self.leftZonesLayer.appendPathSublayer(
+                    fillColor=REDZone,
+                    name=zoneName
+                    )
+                zonePen = leftZoneLayer.getPen()
+                mnOff = math.tan(math.radians(-self.italicAngle)) * mn
+                mxOff = math.tan(math.radians(-self.italicAngle)) * mx
+                zonePen.moveTo((0+mnOff, mn))
+                zonePen.lineTo((self.clip+mnOff, mn))
+                zonePen.lineTo((self.clip+mxOff, mx))
+                zonePen.lineTo((0+mxOff, mx))
+                zonePen.closePath()
+                leftZoneLayer.setVisible(False)
+
+                zoneName = f'rightZone_{mn}_{mx}'
+                self.zoneLayerNames.append(zoneName)
+                rightZoneLayer = self.rightZonesLayer.appendPathSublayer(
+                    fillColor=BLUEZone,
+                    name=zoneName
+                    )
+                zonePen = rightZoneLayer.getPen()
+                zonePen.moveTo((0-self.clip+mnOff, mn))
+                zonePen.lineTo((+mnOff, mn))
+                zonePen.lineTo((+mxOff, mx))
+                zonePen.lineTo((0-self.clip+mxOff, mx))
+                zonePen.closePath()
+                rightZoneLayer.setPosition((self.width, 0))
+                rightZoneLayer.setVisible(False)
+
     def similiarityDataChanged(self, info):
         self.data = info["lowLevelEvents"][-1]["value"]
-        print("similiarityDataChanged", len(self.data))
-        print("similiarityDataChanged", self.glyphEditor.getGlyph())
-
         self.leftPathLayer.clearSublayers()
         self.rightPathLayer.clearSublayers()
-        
         glyph = self.glyphEditor.getGlyph()
         if glyph is None:
             print("huh, no glyph?")
@@ -542,11 +612,6 @@ class DrawSimilars(Subscriber):
                     pp.setPath(glyphPath)
                     pp.setPosition((-simGlyph.width + glyph.width, 0))
                     hasDrawnRight = True
-        
-        #for item in self.data:
-        #    print(self.glyphEditor.glyph, item)
-        #    if item['side'] == "left":
-                
 
     def _updateNeighbours(self, glyph):
         if glyph is None: return
@@ -604,6 +669,15 @@ if __name__ == "__main__":
         lowLevelEventNames=[f"{SIMILARITY_DATA_KEY}.ValueChanged"],
         dispatcher="roboFont",
         documentation="Send new similarity data",
+        delay=0.01,
+        debug=DEBUG
+    )
+    registerSubscriberEvent(
+        subscriberEventName=f"{SIMILARITY_DATA_KEY}.ZonesChanged",
+        methodName="similiarityZonesChanged",
+        lowLevelEventNames=[f"{SIMILARITY_DATA_KEY}.ZonesChanged"],
+        dispatcher="roboFont",
+        documentation="Send new zones data",
         delay=0.01,
         debug=DEBUG
     )
