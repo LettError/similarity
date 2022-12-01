@@ -47,9 +47,9 @@ class SimilarityWindowController(Subscriber, ezui.WindowController):
         self.clip = float(getDefault(self.clipPrefKey, 200))
         self.italicAngle = 0
         self.currentGlyph = None
+        self.previousCurrentGlyphName = None
         self.showSimilar = 30
         self.interestingMarginThreshold = 5
-        self.previousCurrentGlyph = None
 
         content = """
         = HorizontalStack
@@ -135,6 +135,7 @@ class SimilarityWindowController(Subscriber, ezui.WindowController):
             resultsTable=dict(
                 selectionCallback=self.selectItemsCallback,
                 doubleClickCallback=self.listDoubleClickCallback,
+                allowsSorting=True,
                 columnDescriptions = [
                     dict(
                         identifier="glyphName",
@@ -144,7 +145,7 @@ class SimilarityWindowController(Subscriber, ezui.WindowController):
                     dict(
                         identifier="leftMargin",
                         title="◀",
-                        width=50
+                        width=60
                     ),
                     dict(
                         identifier="confidenceLeft",
@@ -161,17 +162,17 @@ class SimilarityWindowController(Subscriber, ezui.WindowController):
                     dict(
                         identifier="rightMargin",
                         title="▶︎",
-                        width=50
+                        width=60
                     ),
                     dict(
                         identifier="unicodeCategory",
                         title="U-Cat",
-                        width=50
+                        width=60
                     ),
                     dict(
                         identifier="unicodeScript",
                         title="U-Script",
-                        width=50
+                        width=60
                     )
                 ]
             ),
@@ -217,10 +218,11 @@ class SimilarityWindowController(Subscriber, ezui.WindowController):
     def listDoubleClickCallback(self, sender):
         # after double clicking, can we see the previous currentglyph
         # selected in the list?
-        self.previousCurrentGlyph = self.currentGlyph.name
+        self.previousCurrentGlyphName = self.currentGlyph.name
         selectedItems = self.table.getSelectedItems()
         name = selectedItems[0].get('glyphName')
         OpenGlyphWindow(CurrentFont()[name])
+        self.selectedPreviousGlyph()
 
     def roboFontDidSwitchCurrentGlyph(self, info=None):
         glyph = None
@@ -239,6 +241,7 @@ class SimilarityWindowController(Subscriber, ezui.WindowController):
                 self.w.setTitle(f"LTR Similarity: {self.currentGlyph.name}")
                 self.setZones()
                 self.updateProfile()
+        #self.selectGlyphsWithInterestingMargins()
         self.postSelectedItems()
         self.postZones()
     
@@ -446,27 +449,29 @@ class SimilarityWindowController(Subscriber, ezui.WindowController):
     
     def selectGlyphsWithInterestingMargins(self):        
         selectedItems = []
-        if self.marginOutliers:
-            selectThese = []
-            for index, item in enumerate(self.table.get()):
-                if item['leftMarginValue'] is not None:
-                    if abs(item['leftMarginValue']) > self.interestingMarginThreshold:
-                        selectThese.append(index)
-                        selectedItems.append(item)
-                if item['rightMarginValue'] is not None:
-                    if abs(item['rightMarginValue']) > self.interestingMarginThreshold:
-                        selectThese.append(index)
-                        selectedItems.append(item)
-            self.table.setSelectedIndexes(selectThese)
+        if not self.marginOutliers: return
+        selectThese = []
+        for index, item in enumerate(self.table.get()):
+            if item['leftMarginValue'] is not None:
+                if abs(item['leftMarginValue']) > self.interestingMarginThreshold:
+                    selectThese.append(index)
+                    selectedItems.append(item)
+            if item['rightMarginValue'] is not None:
+                if abs(item['rightMarginValue']) > self.interestingMarginThreshold:
+                    selectThese.append(index)
+                    selectedItems.append(item)
+        self.table.setSelectedIndexes(selectThese)
+            
+    def selectedPreviousGlyph(self):
         # what does this do?
-        if self.previousCurrentGlyph is not None:
+        if self.previousCurrentGlyphName is not None:
             selectThese = []
             for index, item in enumerate(self.table.getItems()):
-                if item['glyphName'] == self.previousCurrentGlyph:
+                if item['glyphName'] == self.previousCurrentGlyphName:
                     selectThese.append(index)
             if selectThese:
                 self.table.setSelectedIndexes(selectThese)
-            self.previousCurrentGlyph = None
+            self.previousCurrentGlyphName = None
         
     def postSelectedItems(self):        
         postEvent(f"{SIMILARITY_DATA_KEY}.ValueChanged", value=self.table.getSelectedItems())
@@ -538,44 +543,42 @@ class DrawSimilars(Subscriber):
         self.clip = data['clip']
         self.italicAngle = data.get('angle',0)
         self.width = data.get("width", 0)
-        print('self.zones', self.zones)
+
         self.leftZonesLayer.clearSublayers()
         self.rightZonesLayer.clearSublayers()
         self.zoneLayerNames = []
-        if self.zones is not None:
-            if self.italicAngle is None:
-                self.italicAngle = 0
-            for mn, mx in self.zones:
-                zoneName = f'leftZone_{mn}_{mx}'
-                self.zoneLayerNames.append(zoneName)
-                leftZoneLayer = self.leftZonesLayer.appendPathSublayer(
-                    fillColor=REDZone,
-                    name=zoneName
-                    )
-                zonePen = leftZoneLayer.getPen()
-                mnOff = math.tan(math.radians(-self.italicAngle)) * mn
-                mxOff = math.tan(math.radians(-self.italicAngle)) * mx
-                zonePen.moveTo((0+mnOff, mn))
-                zonePen.lineTo((self.clip+mnOff, mn))
-                zonePen.lineTo((self.clip+mxOff, mx))
-                zonePen.lineTo((0+mxOff, mx))
-                zonePen.closePath()
-                leftZoneLayer.setVisible(False)
+        if self.zones is None: return
+        for mn, mx in self.zones:
+            zoneName = f'leftZone_{mn}_{mx}'
+            self.zoneLayerNames.append(zoneName)
+            leftZoneLayer = self.leftZonesLayer.appendPathSublayer(
+                fillColor=REDZone,
+                name=zoneName
+                )
+            zonePen = leftZoneLayer.getPen()
+            mnOff = math.tan(math.radians(-self.italicAngle)) * mn
+            mxOff = math.tan(math.radians(-self.italicAngle)) * mx
+            zonePen.moveTo((0+mnOff, mn))
+            zonePen.lineTo((self.clip+mnOff, mn))
+            zonePen.lineTo((self.clip+mxOff, mx))
+            zonePen.lineTo((0+mxOff, mx))
+            zonePen.closePath()
+            leftZoneLayer.setVisible(True)
 
-                zoneName = f'rightZone_{mn}_{mx}'
-                self.zoneLayerNames.append(zoneName)
-                rightZoneLayer = self.rightZonesLayer.appendPathSublayer(
-                    fillColor=BLUEZone,
-                    name=zoneName
-                    )
-                zonePen = rightZoneLayer.getPen()
-                zonePen.moveTo((0-self.clip+mnOff, mn))
-                zonePen.lineTo((+mnOff, mn))
-                zonePen.lineTo((+mxOff, mx))
-                zonePen.lineTo((0-self.clip+mxOff, mx))
-                zonePen.closePath()
-                rightZoneLayer.setPosition((self.width, 0))
-                rightZoneLayer.setVisible(False)
+            zoneName = f'rightZone_{mn}_{mx}'
+            self.zoneLayerNames.append(zoneName)
+            rightZoneLayer = self.rightZonesLayer.appendPathSublayer(
+                fillColor=BLUEZone,
+                name=zoneName
+                )
+            zonePen = rightZoneLayer.getPen()
+            zonePen.moveTo((0-self.clip+mnOff, mn))
+            zonePen.lineTo((+mnOff, mn))
+            zonePen.lineTo((+mxOff, mx))
+            zonePen.lineTo((0-self.clip+mxOff, mx))
+            zonePen.closePath()
+            rightZoneLayer.setPosition((self.width, 0))
+            rightZoneLayer.setVisible(True)
 
     def similiarityDataChanged(self, info):
         self.data = info["lowLevelEvents"][-1]["value"]
