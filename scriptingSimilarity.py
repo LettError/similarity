@@ -4,6 +4,8 @@ from cosineSimilarity import cosineSimilarity, SimilarGlyphsKey
 
 print('SimilarGlyphsKey', SimilarGlyphsKey)
 
+# https://typesupply.github.io/ezui/containers.html#ezui.Pane
+
 
 g = CurrentGlyph()
 font = CurrentFont()
