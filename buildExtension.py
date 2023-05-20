@@ -55,7 +55,7 @@ if resourcesPath:
     B.icon = imagePath
 
 # version of the extension
-B.version = '1.3.1'
+B.version = '1.4'
 
 # should the extension be launched at start-up?
 B.launchAtStartUp = False
@@ -68,7 +68,7 @@ B.html = htmlPath is not None
 
 # minimum RoboFont version required for this extension
 B.requiresVersionMajor = '4'
-B.requiresVersionMinor = '1'
+B.requiresVersionMinor = '2'
 
 # scripts which should appear in Extensions menu
 B.addToMenu = [
