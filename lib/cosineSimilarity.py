@@ -44,7 +44,6 @@ def SimilarityRepresentationFactory(glyph, threshold=0.99,
     hits = {}
     font = glyph.font
     for other in font:
-        
         if other.unicode is not None:
             otherUnicodeClass = u2c(other.unicode)
             otherUnicodeScript = fontTools.unicodedata.script(other.unicode)
@@ -54,7 +53,6 @@ def SimilarityRepresentationFactory(glyph, threshold=0.99,
             if sameUnicodeScript and (otherUnicodeScript != thisUnicodeScript) and thisUnicodeScript is not None:
                 #print(f"B ----- {glyph.name}: {otherUnicodeScript} {thisUnicodeScript}")
                 continue
-
         # the other.unicode is None
         # skip comparisons between a glyph that has a unicode and the other that does not.
         # this may skip some alternates.
@@ -91,13 +89,14 @@ defcon.Glyph.representationFactories[SimilarGlyphsKey] = dict(
     )
         
 def stepRange(mn, mx, parts):
-    # return a list of parts between mn, mx
+    # return a list of *parts or sections* between mn, mx
+    # so not the length of the output list.
     # stepRange(0,10,2)
     # [0.0, 5.0, 10.0]
-    v = []
-    for i in range(parts+1):
-        v.append(mn+(i/(parts)*(mx-mn)))
-    return v
+    if parts < 1:
+        return [mn, mx]
+    d = mx-mn
+    return [mn+(i/(parts)*d) for i in range(parts+1)]
 
 def makeNormalizedProfile(glyph, clip=200):
     # make a normalized profile of left and right side of glyph
@@ -127,9 +126,10 @@ def makeNormalizedProfile(glyph, clip=200):
     mmp = MultipleMarginPen(glyph.font, sampleHeights)
     glyph.draw(mmp)
     hits = mmp.getMargins()
+    _tana = math.tan(math.radians(-a))
     for h in sampleHeights:
         if a is not 0:
-            ta = math.tan(math.radians(-a)) * h
+            ta = _tana * h
         else:
             ta = 0
         m = hits.get(h)
