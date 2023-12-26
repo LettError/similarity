@@ -12,6 +12,25 @@ from glyphNameFormatter.reader import u2r, u2c
 from multipleMarginPen import MultipleMarginPen
 import fontTools.unicodedata
 
+
+# make the defcon pseudo unicodes available in a factory
+# destruct on changed glyphname. (can't find changed unicode in defcon)
+glyphPseudoUnicodeKey = "com.letterror.similarity.glyphPseudoUnicode"
+
+def PseudoUnicodeFactory(glyph):
+    return glyph.font.asDefcon().unicodeData.pseudoUnicodeForGlyphName(glyph.name)
+    
+defcon.Glyph.representationFactories[glyphPseudoUnicodeKey] = dict(
+    factory=PseudoUnicodeFactory, 
+    destructiveNotifications=("Glyph.NameChanged",),
+    )
+
+#g = CurrentGlyph()
+#uni = g.getRepresentation(glyphPseudoUnicodeKey)
+#print(g.name, uni)
+
+
+
 def NormalizedGlyphProfileFactory(glyph, clip=200):
     la, ra, profile = makeNormalizedProfile(glyph, clip=clip)
     return profile
@@ -35,18 +54,26 @@ def SimilarityRepresentationFactory(glyph, threshold=0.99,
                 side="left", 
                 clip=200, 
                 ):
+    glyph_unicode = glyph.unicode
+    font = glyph.font
+    if glyph_unicode is None:
+        glyph_unicode = glyph.getRepresentation(glyphPseudoUnicodeKey)
+        #glyph_unicode = font.asDefcon().unicodeData.pseudoUnicodeForGlyphName(glyph.name)
     # return the glyphs that are similar on the left
-    thisUnicodeClass = u2c(glyph.unicode)
-    if glyph.unicode is not None:
-        thisUnicodeScript = fontTools.unicodedata.script(glyph.unicode)
+    thisUnicodeClass = u2c(glyph_unicode)
+    if glyph_unicode is not None:
+        thisUnicodeScript = fontTools.unicodedata.script(glyph_unicode)
     else:
         thisUnicodeScript = None
     hits = {}
-    font = glyph.font
     for other in font:
-        if other.unicode is not None:
-            otherUnicodeClass = u2c(other.unicode)
-            otherUnicodeScript = fontTools.unicodedata.script(other.unicode)
+        other_unicode = other.unicode
+        if other_unicode is None:
+            other_unicode = other.getRepresentation(glyphPseudoUnicodeKey)
+            #other_unicode = font.asDefcon().unicodeData.pseudoUnicodeForGlyphName(other.name)
+        if other_unicode is not None:
+            otherUnicodeClass = u2c(other_unicode)
+            otherUnicodeScript = fontTools.unicodedata.script(other_unicode)
             if sameUnicodeClass and (otherUnicodeClass != thisUnicodeClass) and thisUnicodeClass is not None:
                 #print(f"A ----- {glyph.name}: {otherUnicodeScript} {thisUnicodeScript}")                
                 continue
@@ -57,10 +84,10 @@ def SimilarityRepresentationFactory(glyph, threshold=0.99,
         # skip comparisons between a glyph that has a unicode and the other that does not.
         # this may skip some alternates.
         # this may need to be addressed with pseudo-unicodes
-        if glyph.unicode is not None and glyph.unicode is None:
+        if glyph_unicode is not None and other_unicode is None:
             #print(f"\tD ----- {glyph.name}: {glyph.unicode} / {other.name} {other.unicode}")
             continue
-        if glyph.unicode is None:
+        if glyph_unicode is None:
             continue
                 
         #print(f"C ----- {glyph.name}: {glyph.unicode} / {other.name} {other.unicode}")                
@@ -114,10 +141,11 @@ def makeNormalizedProfile(glyph, clip=200):
     if a is None:
         a = 0
     profile = []
+    padding = 100
     sections = [
-        (0, font.info.descender, 5),
-        (0, font.info.xHeight, 50),
-        (font.info.xHeight, font.info.unitsPerEm, 25)
+        (0, font.info.descender - padding, 20),
+        (0, font.info.xHeight, 40),
+        (font.info.xHeight, font.info.unitsPerEm+font.info.descender + padding, 20)
     ]
     sampleHeights = []
     for mn,mx,step in sections:
@@ -187,7 +215,7 @@ def getRange(values, zones):
     ok.sort()
     return ok
         
-def cosineSimilarity(first, second, side="left", zones=None, clip=200):
+def cosineSimilarity(first, second, side="left", zones=None, clip=300):
     sides = {}
     firstProfile = first.getRepresentation(normalizedProfileKey, clip=clip)
     secondProfile = second.getRepresentation(normalizedProfileKey, clip=clip)
@@ -220,10 +248,10 @@ def compareGlyphs(font, members, side="left", zones=None):
     done = []
     for first in members:
         for second in members:
+            if first == second: continue
             key = [first, second]
             key.sort()
             key = tuple(key)
-            if first == second: continue
             if key in done: continue
             similarityValue = cosineSimilarity(font[key[0]], font[key[1]], side=side, zones=zones)
             sideResult[key] = similarityValue

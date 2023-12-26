@@ -59,14 +59,13 @@ class SimilarityWindowController(Subscriber, ezui.WindowController):
 
         * TwoColumnForm                     @settingsForm
 
-        > !§ Parameters
+        > !§ Similarity Parameters
 
         > : Threshold:
         > --X----------------------- [__]   @thresholdSlider
         > : Clip:
         > --X----------------------- [__]   @clipSlider
         > :
-        > [X] Select Margin Outliers (>5)   @marginOutliersCheckbox
 
         > !§ Unicode
 
@@ -83,6 +82,9 @@ class SimilarityWindowController(Subscriber, ezui.WindowController):
         > [X] Baseline to X-Height          @baselineToXHeightCheckbox
         > :
         > [X] Below Baseline                @belowBaselineCheckbox
+        > :
+        > [X] Select Margin Outliers (>5)   @marginOutliersCheckbox
+
 
         |-------------------------------|   @resultsTable
         |                               |
@@ -116,8 +118,8 @@ class SimilarityWindowController(Subscriber, ezui.WindowController):
             ),
             thresholdSlider=dict(
                 valueType="float:3",
-                value=0.5,
-                minValue=0,
+                value=0.99,
+                minValue=0.9,
                 maxValue=1.0,
                 sliderWidth=sliderWidth,
                 textFieldWidth=textFieldWidth,
@@ -246,9 +248,9 @@ class SimilarityWindowController(Subscriber, ezui.WindowController):
                 self.w.setTitle(f"LTR Similarity: {self.currentGlyph.name}")
                 self.setZones()
                 self.updateProfile()
-        if self.marginOutliers:
-            #print("setting margin outliers selection")
-            self.selectGlyphsWithInterestingMargins()
+            if self.marginOutliers:
+                #print("setting margin outliers selection")
+                self.selectGlyphsWithInterestingMargins()
         self.postSelectedItems()
         self.postZones()
     
