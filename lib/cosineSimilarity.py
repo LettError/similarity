@@ -22,7 +22,7 @@ def PseudoUnicodeFactory(glyph):
     
 defcon.Glyph.representationFactories[glyphPseudoUnicodeKey] = dict(
     factory=PseudoUnicodeFactory, 
-    destructiveNotifications=("Glyph.NameChanged",),
+    destructiveNotifications=("Glyph.NameChanged", "Glyph.UnicodesChanged"),
     )
 
 #g = CurrentGlyph()

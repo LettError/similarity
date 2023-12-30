@@ -104,8 +104,8 @@ class SimilarityWindowController(Subscriber, ezui.WindowController):
             style="continuous",
             minValue=0,
             maxValue=100,
-            warningValue=95,
-            criticalValue=75,
+            warningValue=98,
+            criticalValue=95,
         )
         descriptionData = dict(
             content=dict(
