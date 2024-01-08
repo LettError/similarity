@@ -22,7 +22,7 @@ def PseudoUnicodeFactory(glyph):
     
 defcon.Glyph.representationFactories[glyphPseudoUnicodeKey] = dict(
     factory=PseudoUnicodeFactory, 
-    destructiveNotifications=("Glyph.NameChanged",),
+    destructiveNotifications=("Glyph.NameChanged", "Glyph.UnicodesChanged"),
     )
 
 #g = CurrentGlyph()
@@ -145,7 +145,7 @@ def makeNormalizedProfile(glyph, clip=200):
     sections = [
         (0, font.info.descender - padding, 20),
         (0, font.info.xHeight, 40),
-        (font.info.xHeight, font.info.unitsPerEm+font.info.descender + padding, 20)
+        (font.info.xHeight, font.info.unitsPerEm+font.info.descender + padding, 10)
     ]
     sampleHeights = []
     for mn,mx,step in sections:
