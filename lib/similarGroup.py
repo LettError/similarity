@@ -56,9 +56,11 @@ class SimilarGroup(object):
         if self.sameUnicodeScript:
             ss = f", {self.groupUnicodeScript}"
 
+        return f"<SimilarGroup {self.side}{sc}{ss}, {self.asSlashString()} >"
+    
+    def asSlashString(self):
         ranked = self.ranked()
-        t = '/'+'/'.join([b.name for a, b in self.ranked()])
-        return f"<SimilarGroup {self.side}{sc}{ss}, {t} >"
+        return '/'+'/'.join([b.name for a, b in self.ranked()])
         
     def __cmp__(self, other):
         return self.keys() == other.keys()

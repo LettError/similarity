@@ -61,7 +61,7 @@ def SimilarityRepresentationFactory(glyph, threshold=0.99,
         #glyph_unicode = font.asDefcon().unicodeData.pseudoUnicodeForGlyphName(glyph.name)
     # return the glyphs that are similar on the left
     thisUnicodeClass = u2c(glyph_unicode)
-    if glyph_unicode is not None:
+    if glyph_unicode != None:
         thisUnicodeScript = fontTools.unicodedata.script(glyph_unicode)
     else:
         thisUnicodeScript = None
@@ -71,20 +71,20 @@ def SimilarityRepresentationFactory(glyph, threshold=0.99,
         if other_unicode is None:
             other_unicode = other.getRepresentation(glyphPseudoUnicodeKey)
             #other_unicode = font.asDefcon().unicodeData.pseudoUnicodeForGlyphName(other.name)
-        if other_unicode is not None:
+        if other_unicode != None:
             otherUnicodeClass = u2c(other_unicode)
             otherUnicodeScript = fontTools.unicodedata.script(other_unicode)
-            if sameUnicodeClass and (otherUnicodeClass != thisUnicodeClass) and thisUnicodeClass is not None:
+            if sameUnicodeClass and (otherUnicodeClass != thisUnicodeClass) and thisUnicodeClass != None:
                 #print(f"A ----- {glyph.name}: {otherUnicodeScript} {thisUnicodeScript}")                
                 continue
-            if sameUnicodeScript and (otherUnicodeScript != thisUnicodeScript) and thisUnicodeScript is not None:
+            if sameUnicodeScript and (otherUnicodeScript != thisUnicodeScript) and thisUnicodeScript != None:
                 #print(f"B ----- {glyph.name}: {otherUnicodeScript} {thisUnicodeScript}")
                 continue
         # the other.unicode is None
         # skip comparisons between a glyph that has a unicode and the other that does not.
         # this may skip some alternates.
         # this may need to be addressed with pseudo-unicodes
-        if glyph_unicode is not None and other_unicode is None:
+        if glyph_unicode != None and other_unicode is None:
             #print(f"\tD ----- {glyph.name}: {glyph.unicode} / {other.name} {other.unicode}")
             continue
         if glyph_unicode is None:
@@ -93,8 +93,8 @@ def SimilarityRepresentationFactory(glyph, threshold=0.99,
         #print(f"C ----- {glyph.name}: {glyph.unicode} / {other.name} {other.unicode}")                
         # ok here we should only have the glyphs with same unicode script and class if we want to be selective
         score = cosineSimilarity(glyph, other, side=side, zones=zones, clip=clip)
-        if score is not None:
-            if threshold is not None:
+        if score != None:
+            if threshold != None:
                 if score >= threshold:
                     if not score in hits:
                         hits[score] = []
@@ -156,7 +156,7 @@ def makeNormalizedProfile(glyph, clip=200):
     hits = mmp.getMargins()
     _tana = math.tan(math.radians(-a))
     for h in sampleHeights:
-        if a is not 0:
+        if a != 0:
             ta = _tana * h
         else:
             ta = 0
@@ -178,9 +178,9 @@ def makeNormalizedProfile(glyph, clip=200):
     # calculate the averages
     for i, v in enumerate(profile):
         y, mn, mx = v
-        if mn is not None:
+        if mn != None:
             leftValues.append(mn)
-        if mx is not None:    
+        if mx != None:    
             rightValues.append(mx)
     if not leftValues:
         leftAverage = 0
@@ -193,11 +193,11 @@ def makeNormalizedProfile(glyph, clip=200):
     normalized = []
     for i, v in enumerate(profile):
         y, mn, mx = v
-        if mn is not None:
+        if mn != None:
             mn -= leftAverage - shift
         else:
             mn = 0
-        if mx is not None:            
+        if mx != None:            
             mx -= rightAverage - shift
         else:
             mx = 0
